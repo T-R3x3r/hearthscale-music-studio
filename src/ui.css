@@ -70,7 +70,7 @@ body {
 .ms-transport {
   display: flex;
   align-items: center;
-  gap: var(--gap-inline);
+  gap: var(--gap-stack) var(--gap-row);
   min-height: calc(var(--space) * 9.5);
   padding: var(--space) calc(var(--space) * 3.5);
   box-sizing: border-box;
@@ -79,6 +79,12 @@ body {
 
 .ms-transport {
   flex-wrap: wrap;
+}
+
+.ms-group {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-inline);
 }
 
 .ms-title {
@@ -106,7 +112,7 @@ body {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: var(--gap-label);
+  gap: var(--gap-inline);
   width: calc(var(--space) * 26);
 }
 

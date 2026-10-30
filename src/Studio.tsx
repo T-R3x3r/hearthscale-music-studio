@@ -953,89 +953,93 @@ export function Studio() {
         <div className="hs-flex-spacer" />
         {song && (
           <>
-            <IconButton aria-label="Undo" disabled={past.current.length === 0} onClick={() => void undo()}>
-              <Icon name="arrow-go-back-line" size={16} />
-            </IconButton>
-            <IconButton aria-label="Redo" disabled={future.current.length === 0} onClick={() => void redo()}>
-              <Icon name="arrow-go-forward-line" size={16} />
-            </IconButton>
-            <input
-              ref={picker}
-              type="file"
-              accept="audio/*,.wav,.mp3,.flac,.ogg,.opus,.m4a,.aac,.webm"
-              multiple
-              hidden
-              onChange={(event) => {
-                const files = [...(event.target.files ?? [])];
-                event.target.value = '';
-                void importFiles(files);
-              }}
-            />
-            {!narrow && (
-              <Button variant="ghost" icon={<Icon name="upload-2-line" size={14} />} onClick={() => picker.current?.click()}>
-                Import
-              </Button>
-            )}
-            <Versions
-              compact={narrow}
-              versions={versions}
-              locale={locale}
-              onOpen={() => void listVersions(song.id).then(setVersions, fail)}
-              onSave={(name) => void keepVersion(name)}
-              onRestore={(version) => void restoreVersion(version)}
-            />
-            {narrow ? (
-              <IconButton aria-label="More" onClick={(event) => setExportMenu(anchorFrom('more', event))}>
-                <Icon name="more-line" size={16} />
+            <div className="ms-group">
+              <IconButton aria-label="Undo" disabled={past.current.length === 0} onClick={() => void undo()}>
+                <Icon name="arrow-go-back-line" size={16} />
               </IconButton>
-            ) : (
-              <span className="hs-tipwrap" {...exportTip.hover}>
-                <Button
-                  variant="ghost"
-                  icon={<Icon name="download-2-line" size={14} />}
-                  disabled={songSeconds(song) === 0}
-                  onClick={(event) => setExportMenu(anchorFrom('export', event))}
-                >
-                  Export
+              <IconButton aria-label="Redo" disabled={future.current.length === 0} onClick={() => void redo()}>
+                <Icon name="arrow-go-forward-line" size={16} />
+              </IconButton>
+            </div>
+            <div className="ms-group">
+              <input
+                ref={picker}
+                type="file"
+                accept="audio/*,.wav,.mp3,.flac,.ogg,.opus,.m4a,.aac,.webm"
+                multiple
+                hidden
+                onChange={(event) => {
+                  const files = [...(event.target.files ?? [])];
+                  event.target.value = '';
+                  void importFiles(files);
+                }}
+              />
+              {!narrow && (
+                <Button variant="ghost" icon={<Icon name="upload-2-line" size={14} />} onClick={() => picker.current?.click()}>
+                  Import
                 </Button>
-                {exportTip.tip}
-              </span>
-            )}
-            {exportMenu && (
-              <MenuSurface anchor={exportMenu} onDismiss={() => setExportMenu(null)}>
-                {narrow && (
-                  <>
-                    <MItem
-                      icon={<Icon name="upload-2-line" size={14} />}
-                      label="Import"
-                      onClick={() => {
-                        setExportMenu(null);
-                        picker.current?.click();
-                      }}
-                    />
-                    <MDivider />
-                  </>
-                )}
-                <MItem
-                  icon={<Icon name="music-2-line" size={14} />}
-                  label="Export the song"
-                  disabled={songSeconds(song) === 0}
-                  onClick={() => {
-                    setExportMenu(null);
-                    void exportSong();
-                  }}
-                />
-                <MItem
-                  icon={<Icon name="folder-music-line" size={14} />}
-                  label="Export each track into a folder"
-                  disabled={songSeconds(song) === 0}
-                  onClick={() => {
-                    setExportMenu(null);
-                    void exportTracks();
-                  }}
-                />
-              </MenuSurface>
-            )}
+              )}
+              <Versions
+                compact={narrow}
+                versions={versions}
+                locale={locale}
+                onOpen={() => void listVersions(song.id).then(setVersions, fail)}
+                onSave={(name) => void keepVersion(name)}
+                onRestore={(version) => void restoreVersion(version)}
+              />
+              {narrow ? (
+                <IconButton aria-label="More" onClick={(event) => setExportMenu(anchorFrom('more', event))}>
+                  <Icon name="more-line" size={16} />
+                </IconButton>
+              ) : (
+                <span className="hs-tipwrap" {...exportTip.hover}>
+                  <Button
+                    variant="ghost"
+                    icon={<Icon name="download-2-line" size={14} />}
+                    disabled={songSeconds(song) === 0}
+                    onClick={(event) => setExportMenu(anchorFrom('export', event))}
+                  >
+                    Export
+                  </Button>
+                  {exportTip.tip}
+                </span>
+              )}
+              {exportMenu && (
+                <MenuSurface anchor={exportMenu} onDismiss={() => setExportMenu(null)}>
+                  {narrow && (
+                    <>
+                      <MItem
+                        icon={<Icon name="upload-2-line" size={14} />}
+                        label="Import"
+                        onClick={() => {
+                          setExportMenu(null);
+                          picker.current?.click();
+                        }}
+                      />
+                      <MDivider />
+                    </>
+                  )}
+                  <MItem
+                    icon={<Icon name="music-2-line" size={14} />}
+                    label="Export the song"
+                    disabled={songSeconds(song) === 0}
+                    onClick={() => {
+                      setExportMenu(null);
+                      void exportSong();
+                    }}
+                  />
+                  <MItem
+                    icon={<Icon name="folder-music-line" size={14} />}
+                    label="Export each track into a folder"
+                    disabled={songSeconds(song) === 0}
+                    onClick={() => {
+                      setExportMenu(null);
+                      void exportTracks();
+                    }}
+                  />
+                </MenuSurface>
+              )}
+            </div>
           </>
         )}
         {narrow ? (
@@ -1055,58 +1059,62 @@ export function Studio() {
       </header>
       {song && (
         <div className="ms-transport">
-          <IconButton aria-label="Back to the start" onClick={() => seek(0)}>
-            <Icon name="skip-back-line" size={16} />
-          </IconButton>
-          <span className="hs-tipwrap" {...playTip.hover}>
-            <Button variant="secondary" icon={<Icon name={playing ? 'stop-line' : 'play-line'} size={14} />} onClick={() => void togglePlay()}>
-              {playing ? 'Stop' : 'Play'}
+          <div className="ms-group">
+            <IconButton aria-label="Back to the start" onClick={() => seek(0)}>
+              <Icon name="skip-back-line" size={16} />
+            </IconButton>
+            <span className="hs-tipwrap" {...playTip.hover}>
+              <Button variant="secondary" icon={<Icon name={playing ? 'stop-line' : 'play-line'} size={14} />} onClick={() => void togglePlay()}>
+                {playing ? 'Stop' : 'Play'}
+              </Button>
+              {playTip.tip}
+            </span>
+            <Button
+              variant={recordingNow ? 'danger' : 'secondary'}
+              icon={<Icon name={recordingNow ? 'stop-line' : 'record-circle-line'} size={14} />}
+              onClick={() => void record()}
+            >
+              {recordingNow ? 'Stop recording' : 'Record'}
             </Button>
-            {playTip.tip}
-          </span>
-          <Button
-            variant={recordingNow ? 'danger' : 'secondary'}
-            icon={<Icon name={recordingNow ? 'stop-line' : 'record-circle-line'} size={14} />}
-            onClick={() => void record()}
-          >
-            {recordingNow ? 'Stop recording' : 'Record'}
-          </Button>
-          <IconButton
-            className="ms-switch-button"
-            aria-label="Metronome"
-            aria-pressed={metronome}
-            onClick={() => {
-              localStorage.setItem('music-metronome', metronome ? 'off' : 'on');
-              setMetronome(!metronome);
-            }}
-          >
-            <Icon name="timer-flash-line" size={16} />
-          </IconButton>
-          <span className="ms-num ms-clock">{clock(position)}</span>
-          <div className="ms-tempo">
-            <TextInput
-              variant="number"
-              aria-label="Tempo"
-              placeholder="Tempo"
-              min={40}
-              max={240}
-              value={song.tempo ?? ''}
-              onChange={(event) => {
-                const value = Number(event.target.value);
-                const tempo = event.target.value === '' || !Number.isFinite(value) ? null : Math.min(240, Math.max(40, value));
-                void edit((s) => ({ ...s, tempo }));
+            <IconButton
+              className="ms-switch-button"
+              aria-label="Metronome"
+              aria-pressed={metronome}
+              onClick={() => {
+                localStorage.setItem('music-metronome', metronome ? 'off' : 'on');
+                setMetronome(!metronome);
               }}
-            />
-            <span className="ms-dim">BPM</span>
+            >
+              <Icon name="timer-flash-line" size={16} />
+            </IconButton>
           </div>
-          <SettingsSelect
-            label="Key"
-            placeholder="Key"
-            value={song.key ?? ''}
-            options={[{ value: '', label: 'Any key' }, ...KEYS.map((k) => ({ value: k, label: k }))]}
-            onPick={(key) => void edit((s) => ({ ...s, key: key || null }))}
-            menuHeight={320}
-          />
+          <span className="ms-num ms-clock">{clock(position)}</span>
+          <div className="ms-group">
+            <div className="ms-tempo">
+              <TextInput
+                variant="number"
+                aria-label="Tempo"
+                placeholder="Tempo"
+                min={40}
+                max={240}
+                value={song.tempo ?? ''}
+                onChange={(event) => {
+                  const value = Number(event.target.value);
+                  const tempo = event.target.value === '' || !Number.isFinite(value) ? null : Math.min(240, Math.max(40, value));
+                  void edit((s) => ({ ...s, tempo }));
+                }}
+              />
+              <span className="ms-dim">BPM</span>
+            </div>
+            <SettingsSelect
+              label="Key"
+              placeholder="Key"
+              value={song.key ?? ''}
+              options={[{ value: '', label: 'Any key' }, ...KEYS.map((k) => ({ value: k, label: k }))]}
+              onPick={(key) => void edit((s) => ({ ...s, key: key || null }))}
+              menuHeight={320}
+            />
+          </div>
           <IconButton
             className="ms-switch-button"
             aria-label="Louder"
@@ -1116,12 +1124,14 @@ export function Studio() {
             <Icon name="volume-up-line" size={16} />
           </IconButton>
           <div className="hs-flex-spacer" />
-          <IconButton aria-label="Zoom out" disabled={zoom === 0} onClick={() => setZoom((z) => Math.max(0, z - 1))}>
-            <Icon name="zoom-out-line" size={16} />
-          </IconButton>
-          <IconButton aria-label="Zoom in" disabled={zoom === ZOOMS.length - 1} onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))}>
-            <Icon name="zoom-in-line" size={16} />
-          </IconButton>
+          <div className="ms-group">
+            <IconButton aria-label="Zoom out" disabled={zoom === 0} onClick={() => setZoom((z) => Math.max(0, z - 1))}>
+              <Icon name="zoom-out-line" size={16} />
+            </IconButton>
+            <IconButton aria-label="Zoom in" disabled={zoom === ZOOMS.length - 1} onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))}>
+              <Icon name="zoom-in-line" size={16} />
+            </IconButton>
+          </div>
         </div>
       )}
       {problem && (
