@@ -331,7 +331,7 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
         <span className="hs-tipwrap" {...hold.hover}>
           {waiting.length > 0 ? (
             <StatusWord tone="info" live>
-              Making
+              Making…
             </StatusWord>
           ) : (
             <StatusWord tone="bad">Failed</StatusWord>
@@ -398,12 +398,12 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
         <span className="ms-clip-name">{take.words || 'Audio'}</span>
         {splitting && (
           <StatusWord tone="info" live>
-            Splitting
+            Splitting…
           </StatusWord>
         )}
         {waiting.length > 0 && (
           <StatusWord tone="info" live>
-            Making
+            Making…
           </StatusWord>
         )}
         {clip.versions.length > 0 && (

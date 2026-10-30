@@ -906,7 +906,7 @@ export function Studio() {
     return (
       <div className="ms-loading">
         <StatusWord tone="info" live>
-          Loading
+          Loading…
         </StatusWord>
       </div>
     );
