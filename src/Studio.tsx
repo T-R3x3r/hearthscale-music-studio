@@ -449,7 +449,7 @@ export function Studio() {
   }, [togglePlay, undo, redo, edit]);
 
   const createSong = async () => {
-    const created = newSong(`Song ${rows.length + 1}`);
+    const created = newSong(freshTitle(rows));
     await saveSong(created).catch(fail);
     await refreshRows();
     await open(created.id);
@@ -1354,6 +1354,14 @@ function useMatch(media: string): boolean {
     return () => query.removeEventListener('change', update);
   }, [media]);
   return matches;
+}
+
+/** The first title "Song 1", "Song 2" and on that no song has. */
+function freshTitle(rows: SongRow[]): string {
+  const taken = new Set(rows.map((row) => row.title));
+  let n = 1;
+  while (taken.has(`Song ${n}`)) n++;
+  return `Song ${n}`;
 }
 
 function clock(seconds: number): string {
