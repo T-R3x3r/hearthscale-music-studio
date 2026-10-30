@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
 import {
   anchorFrom,
-  Button,
   Icon,
   IconButton,
   MDivider,
@@ -455,9 +454,9 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
                 <Icon name="arrow-right-s-line" size={14} />
               </TipIconButton>
               {waiting.length === 0 && (
-                <Button size="sm" variant="secondary" onClick={() => onKeep(clip.id)}>
-                  Keep
-                </Button>
+                <TipIconButton size="sm" aria-label="Keep this take" onClick={() => onKeep(clip.id)}>
+                  <Icon name="check-line" size={14} />
+                </TipIconButton>
               )}
             </span>
           )}
