@@ -122,7 +122,7 @@ const SAME_TEMPO = 0.01;
 const HISTORY = 200;
 
 /** The query of a tile too narrow for every control of the toolbar. */
-const NARROW = '(max-width: 639px)';
+const NARROW = '(max-width: 759px)';
 
 /** The query of a tile too narrow to dock a panel beside the timeline. */
 const CROWDED = '(max-width: 959px)';

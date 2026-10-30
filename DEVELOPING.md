@@ -41,7 +41,7 @@ Close and open the app's tab again after `npm run build` to load the view.
   transport above the timeline, the Make or edit panel under it, the
   assistant docked on the left and the library of songs and snippets on
   the right. Under 960 px the docks float over the timeline and the
-  library starts closed; under 640 px the toolbar keeps its rarer actions
+  library starts closed; under 760 px the toolbar keeps its rarer actions
   in a menu. Every length, colour and type size is a token of the UI kit.
   Waveforms are drawn on a canvas in `--mut`, the played part in `--text`,
   and drawn again when the host's look changes.
