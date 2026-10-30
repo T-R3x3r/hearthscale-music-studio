@@ -327,34 +327,33 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
   if (!take) {
     const job = waiting.map((p) => jobs[p.job]).find(Boolean);
     const hold = tips('hold', job?.waiting ?? clip.failure);
-    const retry = tips('retry', 'Try again');
     return (
       <div className="ms-clip ms-clip-waiting" style={{ left, width }} onClick={stop}>
-        <span className="hs-tipwrap" {...hold.hover}>
-          {waiting.length > 0 ? (
-            <StatusWord tone="info" live>
-              Making…
-            </StatusWord>
-          ) : (
-            <StatusWord tone="bad">Failed</StatusWord>
-          )}
-          {hold.tip}
-        </span>
-        {waiting.length === 0 && (
-          <span className="ms-versions">
-            {clip.ask && (
-              <span className="hs-tipwrap" {...retry.hover}>
-                <IconButton size="sm" aria-label="Try again" onClick={() => onRetry(clip.id)}>
-                  <Icon name="refresh-line" size={14} />
-                </IconButton>
-                {retry.tip}
-              </span>
+        <div className="ms-clip-bar">
+          <span className="ms-clip-name">{clip.ask?.words ?? waiting[0]?.words}</span>
+          <span className="hs-tipwrap" {...hold.hover}>
+            {waiting.length > 0 ? (
+              <StatusWord tone="info" live>
+                Making…
+              </StatusWord>
+            ) : (
+              <StatusWord tone="bad">Failed</StatusWord>
             )}
-            <TipIconButton size="sm" aria-label="Remove clip" onClick={() => onEdit((s) => removeClip(s, clip.id))}>
-              <Icon name="close-line" size={14} />
-            </TipIconButton>
+            {hold.tip}
           </span>
-        )}
+          {waiting.length === 0 && (
+            <span className="ms-versions">
+              {clip.ask && (
+                <TipIconButton size="sm" aria-label="Try again" onClick={() => onRetry(clip.id)}>
+                  <Icon name="refresh-line" size={14} />
+                </TipIconButton>
+              )}
+              <TipIconButton size="sm" aria-label="Remove clip" onClick={() => onEdit((s) => removeClip(s, clip.id))}>
+                <Icon name="close-line" size={14} />
+              </TipIconButton>
+            </span>
+          )}
+        </div>
       </div>
     );
   }

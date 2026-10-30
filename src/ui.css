@@ -465,10 +465,6 @@ body {
 }
 
 .ms-clip-waiting {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 calc(var(--space) * 2);
   border: var(--bw) dashed var(--swatch);
   box-sizing: border-box;
 }
@@ -481,7 +477,7 @@ body {
   align-items: center;
   gap: var(--gap-inline);
   box-sizing: content-box;
-  min-height: var(--icon-ctl-sm);
+  height: var(--icon-ctl-sm);
   padding: var(--space) calc(var(--space) * 6) var(--space) calc(var(--space) * 1.5);
 }
 
