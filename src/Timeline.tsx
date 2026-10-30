@@ -370,12 +370,17 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
   };
   const start = clipStart(song, clip);
   const inside = position > start && position < start + clip.length && clip.loops === 1;
-  const begin = (kind: EditKind) => {
+  /** Closes the menu; one opened from the keyboard gives the focus back to the clip. */
+  const closeMenu = () => {
     setMenu(null);
+    if (menuKeys) self.current?.focus();
+  };
+  const begin = (kind: EditKind) => {
+    closeMenu();
     onEditStart(kind, clip.id);
   };
   const act = (edit: (s: Song) => Song) => {
-    setMenu(null);
+    closeMenu();
     onEdit(edit);
   };
   /** Opens the clip's menu at the pointer, on a right-click. */
@@ -490,7 +495,7 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
         {loopTip.tip}
       </span>
       {menu && (
-        <MenuSurface anchor={menu} keyboard={menuKeys} onDismiss={() => setMenu(null)}>
+        <MenuSurface anchor={menu} keyboard={menuKeys} onDismiss={closeMenu}>
           {edits.restyle && <MItem icon={<Icon name={EDITS.restyle.icon} size={14} />} label={EDITS.restyle.title} onClick={() => begin('restyle')} />}
           {edits.repaint && <MItem icon={<Icon name={EDITS.repaint.icon} size={14} />} label={EDITS.repaint.title} onClick={() => begin('repaint')} />}
           {edits.repaint && <MItem icon={<Icon name={EDITS.longer.icon} size={14} />} label={EDITS.longer.title} onClick={() => begin('longer')} />}
@@ -514,7 +519,7 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
             label="Split into stems"
             disabled={splitting}
             onClick={() => {
-              setMenu(null);
+              closeMenu();
               onSplit(clip.id);
             }}
           />
@@ -523,7 +528,7 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
             icon={<Icon name="bookmark-line" size={14} />}
             label="Save as snippet"
             onClick={() => {
-              setMenu(null);
+              closeMenu();
               onSnippet(clip.id);
             }}
           />
