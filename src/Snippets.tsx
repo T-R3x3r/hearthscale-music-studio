@@ -1,4 +1,5 @@
-import { Button, EmptyState, Icon, IconButton, useFloatingTips } from '@hearthscale/app-ui';
+import { Button, EmptyState, Icon, useFloatingTips } from '@hearthscale/app-ui';
+import { TipIconButton } from './TipIconButton';
 import type { Snippet } from './library';
 import { SNIPPET_DRAG } from './Timeline';
 
@@ -38,9 +39,9 @@ export function Snippets({ snippets, previewing, onPreview, onRename, onDelete, 
             event.dataTransfer.effectAllowed = 'copy';
           }}
         >
-          <IconButton size="sm" aria-label={previewing === snippet.id ? 'Stop' : 'Listen'} onClick={() => onPreview(snippet)}>
+          <TipIconButton size="sm" aria-label={previewing === snippet.id ? 'Stop' : 'Listen'} onClick={() => onPreview(snippet)}>
             <Icon name={previewing === snippet.id ? 'stop-line' : 'play-line'} size={14} />
-          </IconButton>
+          </TipIconButton>
           <input
             className="ms-snippet-name"
             aria-label="Snippet name"
@@ -48,9 +49,9 @@ export function Snippets({ snippets, previewing, onPreview, onRename, onDelete, 
             onChange={(event) => onRename(snippet, event.target.value)}
           />
           <span className="ms-dim ms-num">{snippet.length.toFixed(1)} s</span>
-          <IconButton size="sm" className="ms-row-action" aria-label={`Delete ${snippet.name}`} onClick={() => onDelete(snippet)}>
+          <TipIconButton size="sm" className="ms-row-action" aria-label={`Delete ${snippet.name}`} onClick={() => onDelete(snippet)}>
             <Icon name="delete-bin-line" size={14} />
-          </IconButton>
+          </TipIconButton>
         </div>
       ))}
     </div>

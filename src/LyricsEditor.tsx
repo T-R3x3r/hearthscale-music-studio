@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Button, Icon, IconButton, Notice, SettingsSelect, useFloatingTips } from '@hearthscale/app-ui';
+import { Button, Icon, Notice, SettingsSelect, useFloatingTips } from '@hearthscale/app-ui';
+import { TipIconButton } from './TipIconButton';
 import { reason } from './bridge';
 import { rewriteSection, SECTIONS, writeLyrics, type LyricSection, type SectionName } from './lyrics';
 
@@ -43,17 +44,17 @@ export function LyricsEditor({ about, sections, onChange }: Props) {
               onPick={(name: SectionName) => set(section.id, { name })}
             />
             <div className="hs-flex-spacer" />
-            <IconButton
+            <TipIconButton
               size="sm"
               aria-label="Rewrite"
               disabled={busy !== null || !section.text.trim()}
               onClick={() => void run(section.id, async () => set(section.id, { text: await rewriteSection(about, section, sections) }))}
             >
               <Icon name={busy === section.id ? 'loader-4-line' : 'refresh-line'} size={14} className={busy === section.id ? 'hs-spin' : undefined} />
-            </IconButton>
-            <IconButton size="sm" aria-label="Remove section" onClick={() => onChange(sections.filter((s) => s.id !== section.id))}>
+            </TipIconButton>
+            <TipIconButton size="sm" aria-label="Remove section" onClick={() => onChange(sections.filter((s) => s.id !== section.id))}>
               <Icon name="close-line" size={14} />
-            </IconButton>
+            </TipIconButton>
           </div>
           <textarea
             className="ms-words hs-ta"

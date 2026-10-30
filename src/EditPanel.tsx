@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Button, Chip, Icon, IconButton, Label, Slider, useFloatingTips, type IconName } from '@hearthscale/app-ui';
+import { Button, Chip, Icon, Label, Slider, useFloatingTips, type IconName } from '@hearthscale/app-ui';
+import { TipIconButton } from './TipIconButton';
 import { PARTS } from './edits';
 import { sentenceCase } from './text';
 
@@ -54,9 +55,9 @@ export function EditPanel({ kind, clip, words: start, bars, longest, onGo, onClo
         <span className="ms-strong">{title}</span>
         {kind === 'repaint' && 'label' in bars && <span className="ms-dim">{bars.label}</span>}
         <div className="hs-flex-spacer" />
-        <IconButton size="sm" aria-label="Close" onClick={onClose}>
+        <TipIconButton size="sm" aria-label="Close" onClick={onClose}>
           <Icon name="close-line" size={14} />
-        </IconButton>
+        </TipIconButton>
       </div>
       <textarea
         className="ms-words hs-ta"
