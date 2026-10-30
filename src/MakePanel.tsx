@@ -3,6 +3,7 @@ import { Button, Chip, Icon, IconButton, Label, Meter, Notice, Popover, Settings
 import type { ModelCard } from '@hearthscale/app';
 import { onboarding } from '../app.json';
 import { reason } from './bridge';
+import { sentenceCase } from './text';
 import type { MusicModels } from './models';
 import type { LyricSection } from './lyrics';
 import { LyricsEditor } from './LyricsEditor';
@@ -13,7 +14,7 @@ const FIRST_MODEL = onboarding.cards.find((card) => 'download' in card)?.downloa
 
 const STYLES = [
   'pop', 'rock', 'hip hop', 'electronic', 'lo-fi', 'jazz', 'classical', 'folk', 'ambient', 'funk',
-  'happy', 'calm', 'sad', 'epic', 'dreamy', 'dark',
+  'happy', 'calm', 'sad', 'cinematic', 'dreamy', 'dark',
   'piano', 'guitar', 'drums', 'strings', 'synth', 'bass',
 ];
 
@@ -55,7 +56,7 @@ export function MakePanel({ models, card, onPick, onMake, lyrics, onLyrics }: Pr
   const flip = (style: string) =>
     setStyles((now) => (now.includes(style) ? now.filter((s) => s !== style) : [...now, style]));
 
-  const blocked = schema === null ? 'This model makes no music from words.' : undefined;
+  const blocked = schema === null ? 'This model cannot make music from a description.' : undefined;
   const make = tips('make', ready ? undefined : blocked ?? 'Describe the music first.');
 
   return (
@@ -65,8 +66,8 @@ export function MakePanel({ models, card, onPick, onMake, lyrics, onLyrics }: Pr
       )}
       <textarea
         className="ms-words hs-ta"
-        aria-label="Describe the music"
-        placeholder="Describe the music"
+        aria-label="Description"
+        placeholder="Warm lo-fi beat with soft piano and rain"
         value={words}
         rows={2}
         onChange={(event) => setWords(event.target.value)}
@@ -74,7 +75,7 @@ export function MakePanel({ models, card, onPick, onMake, lyrics, onLyrics }: Pr
       <div className="ms-chips">
         {STYLES.map((style) => (
           <Chip key={style} selected={styles.includes(style)} onClick={() => flip(style)}>
-            {style}
+            {sentenceCase(style)}
           </Chip>
         ))}
       </div>
@@ -119,13 +120,13 @@ export function MakePanel({ models, card, onPick, onMake, lyrics, onLyrics }: Pr
           />
           {models.offered.length > 0 && (
             <span ref={more}>
-              <IconButton aria-label="More music models" onClick={() => setShowMore(true)}>
+              <IconButton aria-label="Add a music model" onClick={() => setShowMore(true)}>
                 <Icon name="add-circle-line" size={16} />
               </IconButton>
             </span>
           )}
           {showMore && more.current && (
-            <Popover anchor={more.current} placement="top-end" label="More music models" onDismiss={() => setShowMore(false)}>
+            <Popover anchor={more.current} placement="top-end" label="Add a music model" onDismiss={() => setShowMore(false)}>
               <div className="ms-more-models">
                 <Installs models={models} cards={models.offered} />
               </div>

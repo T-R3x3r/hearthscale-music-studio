@@ -5,6 +5,7 @@
  */
 import { App, McpUiMessageResultSchema, PostMessageTransport } from '@modelcontextprotocol/ext-apps';
 import { extensionCall } from '@hearthscale/app/view';
+import { sentenceCase } from './text';
 import type {
   CompletionRequest,
   HostSlot,
@@ -183,6 +184,5 @@ export async function complete(request: CompletionRequest): Promise<string> {
 /** The host's words of a refused request, without the protocol's prefix, as a sentence. */
 export function reason(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error);
-  const words = text.replace(/^MCP error -?\d+:\s*/, '');
-  return words.charAt(0).toUpperCase() + words.slice(1);
+  return sentenceCase(text.replace(/^MCP error -?\d+:\s*/, ''));
 }
