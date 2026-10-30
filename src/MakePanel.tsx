@@ -149,6 +149,15 @@ function NoModel({ models }: { models: MusicModels }) {
   const tips = useFloatingTips('top');
   const why = models.failure ?? models.chosen.reason ?? 'No music model can run on this computer.';
   const whyTip = tips('why', why);
+  if (models.offered.length === 0) {
+    return (
+      <div className="ms-make">
+        <div>
+          <Notice>{why}</Notice>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="ms-make ms-nomodel">
       <div className="ms-nomodel-head">
