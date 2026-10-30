@@ -18,6 +18,7 @@ import {
   useFloatingTips,
   type MenuAnchor,
 } from '@hearthscale/app-ui';
+import { TipIconButton } from './TipIconButton';
 import type { Job } from '@hearthscale/app';
 import { findTempo } from './analyse';
 import { Engine, excerpt, RATE, wav } from './audio';
@@ -948,9 +949,9 @@ export function Studio() {
         {song && (
           <>
             {narrow ? (
-              <IconButton className="ms-switch-button" aria-label="Ask" aria-pressed={chat} onClick={() => setChat((c) => !c)}>
+              <TipIconButton className="ms-switch-button" aria-label="Ask" aria-pressed={chat} onClick={() => setChat((c) => !c)}>
                 <Icon name="chat-smile-ai-line" size={16} />
-              </IconButton>
+              </TipIconButton>
             ) : (
               <Button
                 variant={chat ? 'secondary' : 'ghost'}
@@ -976,12 +977,12 @@ export function Studio() {
         {song && (
           <>
             <div className="ms-group">
-              <IconButton aria-label="Undo" disabled={past.current.length === 0} onClick={() => void undo()}>
+              <TipIconButton aria-label="Undo" disabled={past.current.length === 0} onClick={() => void undo()}>
                 <Icon name="arrow-go-back-line" size={16} />
-              </IconButton>
-              <IconButton aria-label="Redo" disabled={future.current.length === 0} onClick={() => void redo()}>
+              </TipIconButton>
+              <TipIconButton aria-label="Redo" disabled={future.current.length === 0} onClick={() => void redo()}>
                 <Icon name="arrow-go-forward-line" size={16} />
-              </IconButton>
+              </TipIconButton>
             </div>
             <div className="ms-group">
               <input
@@ -1010,9 +1011,9 @@ export function Studio() {
                 onRestore={(version) => void restoreVersion(version)}
               />
               {narrow ? (
-                <IconButton aria-label="More" onClick={(event) => setExportMenu(anchorFrom('more', event))}>
+                <TipIconButton aria-label="More" onClick={(event) => setExportMenu(anchorFrom('more', event))}>
                   <Icon name="more-line" size={16} />
-                </IconButton>
+                </TipIconButton>
               ) : (
                 <span className="hs-tipwrap" {...exportTip.hover}>
                   <Button
@@ -1065,9 +1066,9 @@ export function Studio() {
           </>
         )}
         {narrow ? (
-          <IconButton className="ms-switch-button" aria-label="Library" aria-pressed={library !== null} onClick={() => setLibrary((l) => (l ? null : 'songs'))}>
+          <TipIconButton className="ms-switch-button" aria-label="Library" aria-pressed={library !== null} onClick={() => setLibrary((l) => (l ? null : 'songs'))}>
             <Icon name="play-list-2-line" size={16} />
-          </IconButton>
+          </TipIconButton>
         ) : (
           <Button
             variant={library !== null ? 'secondary' : 'ghost'}
@@ -1082,9 +1083,9 @@ export function Studio() {
       {song && (
         <div className="ms-transport">
           <div className="ms-group">
-            <IconButton aria-label="Go to start" onClick={() => seek(0)}>
+            <TipIconButton aria-label="Go to start" onClick={() => seek(0)}>
               <Icon name="skip-back-line" size={16} />
-            </IconButton>
+            </TipIconButton>
             <span className="hs-tipwrap" {...playTip.hover}>
               <Button variant="secondary" icon={<Icon name={playing ? 'stop-line' : 'play-line'} size={14} />} onClick={() => void togglePlay()}>
                 {playing ? 'Stop' : 'Play'}
@@ -1154,12 +1155,12 @@ export function Studio() {
           </span>
           <div className="hs-flex-spacer" />
           <div className="ms-group">
-            <IconButton aria-label="Zoom out" disabled={zoom === 0} onClick={() => setZoom((z) => Math.max(0, z - 1))}>
+            <TipIconButton aria-label="Zoom out" disabled={zoom === 0} onClick={() => setZoom((z) => Math.max(0, z - 1))}>
               <Icon name="zoom-out-line" size={16} />
-            </IconButton>
-            <IconButton aria-label="Zoom in" disabled={zoom === ZOOMS.length - 1} onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))}>
+            </TipIconButton>
+            <TipIconButton aria-label="Zoom in" disabled={zoom === ZOOMS.length - 1} onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))}>
               <Icon name="zoom-in-line" size={16} />
-            </IconButton>
+            </TipIconButton>
           </div>
         </div>
       )}
@@ -1257,9 +1258,9 @@ export function Studio() {
                         <Icon name="music-2-line" size={14} />
                         <span className="ms-song-title">{row.title}</span>
                       </button>
-                      <IconButton size="sm" className="ms-row-action" aria-label={`Delete ${row.title}`} onClick={() => setDeleting(row)}>
+                      <TipIconButton size="sm" className="ms-row-action" aria-label={`Delete ${row.title}`} onClick={() => setDeleting(row)}>
                         <Icon name="delete-bin-line" size={14} />
-                      </IconButton>
+                      </TipIconButton>
                     </div>
                   ))}
                 </div>

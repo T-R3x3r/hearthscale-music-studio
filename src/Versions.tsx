@@ -1,5 +1,6 @@
 import { useRef, useState, type MouseEvent } from 'react';
-import { anchorFrom, Button, Icon, IconButton, MDivider, MenuSurface, MItem, Popover, TextInput, type MenuAnchor } from '@hearthscale/app-ui';
+import { anchorFrom, Button, Icon, MDivider, MenuSurface, MItem, Popover, TextInput, type MenuAnchor } from '@hearthscale/app-ui';
+import { TipIconButton } from './TipIconButton';
 import type { VersionRow } from './library';
 
 interface Props {
@@ -31,9 +32,9 @@ export function Versions({ compact, versions, locale, onOpen, onSave, onRestore 
   return (
     <span ref={button}>
       {compact ? (
-        <IconButton aria-label="Versions" onClick={open}>
+        <TipIconButton aria-label="Versions" onClick={open}>
           <Icon name="history-line" size={16} />
-        </IconButton>
+        </TipIconButton>
       ) : (
         <Button variant="ghost" icon={<Icon name="history-line" size={14} />} onClick={open}>
           Versions

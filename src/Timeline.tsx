@@ -13,6 +13,7 @@ import {
   type IconName,
   type MenuAnchor,
 } from '@hearthscale/app-ui';
+import { TipIconButton } from './TipIconButton';
 import type { Job } from '@hearthscale/app';
 import { audible, PEAKS_PER_SECOND, peaks, type Engine } from './audio';
 import { onLookChange } from './bridge';
@@ -254,9 +255,9 @@ function TrackHead({ track, onEdit }: { track: Track; onEdit: (edit: Edit) => vo
           value={track.name}
           onChange={(event) => set({ name: event.target.value })}
         />
-        <IconButton size="sm" aria-label="Track menu" onClick={(event) => setMenu(anchorFrom('track', event))}>
+        <TipIconButton size="sm" aria-label="Track menu" onClick={(event) => setMenu(anchorFrom('track', event))}>
           <Icon name="more-2-line" size={14} />
-        </IconButton>
+        </TipIconButton>
       </div>
       <div className="ms-lane-controls">
         <span className="hs-tipwrap" {...muteTip.hover}>
@@ -349,9 +350,9 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
                 {retry.tip}
               </span>
             )}
-            <IconButton size="sm" aria-label="Remove clip" onClick={() => onEdit((s) => removeClip(s, clip.id))}>
+            <TipIconButton size="sm" aria-label="Remove clip" onClick={() => onEdit((s) => removeClip(s, clip.id))}>
               <Icon name="close-line" size={14} />
-            </IconButton>
+            </TipIconButton>
           </span>
         )}
       </div>
@@ -412,16 +413,16 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
         )}
         {clip.versions.length > 0 && (
           <span className="ms-versions" onPointerDown={(event) => event.stopPropagation()}>
-            <IconButton size="sm" aria-label="Previous take" onClick={() => step(-1)}>
+            <TipIconButton size="sm" aria-label="Previous take" onClick={() => step(-1)}>
               <Icon name="arrow-left-s-line" size={14} />
-            </IconButton>
+            </TipIconButton>
             <span className="hs-tipwrap ms-num" {...takes.hover}>
               {index + 1} / {total}
               {takes.tip}
             </span>
-            <IconButton size="sm" aria-label="Next take" onClick={() => step(1)}>
+            <TipIconButton size="sm" aria-label="Next take" onClick={() => step(1)}>
               <Icon name="arrow-right-s-line" size={14} />
-            </IconButton>
+            </TipIconButton>
             {waiting.length === 0 && (
               <Button size="sm" variant="secondary" onClick={() => onKeep(clip.id)}>
                 Keep
@@ -431,9 +432,9 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
         )}
         {picked && (
           <span onPointerDown={(event) => event.stopPropagation()}>
-            <IconButton size="sm" aria-label="Clip menu" onClick={(event) => setMenu(anchorFrom('clip', event))}>
+            <TipIconButton size="sm" aria-label="Clip menu" onClick={(event) => setMenu(anchorFrom('clip', event))}>
               <Icon name="more-2-line" size={14} />
-            </IconButton>
+            </TipIconButton>
           </span>
         )}
       </div>
