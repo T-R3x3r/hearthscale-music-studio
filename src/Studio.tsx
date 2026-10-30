@@ -59,7 +59,7 @@ import { editsOf } from './edits';
 import { fit, semitonesBetween } from './fit';
 import { lyricsText } from './lyrics';
 import { MakePanel, type MakeRequest } from './MakePanel';
-import { musicCard, useMusicModels } from './models';
+import { useMusicModel } from './models';
 import { Recorder } from './recorder';
 import { abilities, musicSchema, newSeed, songInput } from './music';
 import { Snippets } from './Snippets';
@@ -140,7 +140,7 @@ function restore(snapshot: Song, current: Song): Song {
 export function Studio() {
   const engine = useRef<Engine | null>(null);
   engine.current ??= new Engine();
-  const models = useMusicModels();
+  const music = useMusicModel();
   const [rows, setRows] = useState<SongRow[]>([]);
   const [song, setSong] = useState<Song | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -152,7 +152,6 @@ export function Studio() {
   const narrow = useMatch(NARROW);
   const crowded = useMatch(CROWDED);
   const [deleting, setDeleting] = useState<SongRow | null>(null);
-  const [picked, setPicked] = useState<string | null>(() => localStorage.getItem('music-model'));
   const [range, setRange] = useState<Range | null>(null);
   const [editing, setEditing] = useState<{ kind: EditKind; clip: string } | null>(null);
   const [chat, setChat] = useState(false);
@@ -599,7 +598,7 @@ export function Studio() {
     const current = songRef.current;
     const clip = current && clipOf(current, request.clip);
     const take = clip && current.takes[clip.take];
-    const model = musicCard(models, picked);
+    const model = music.card;
     const schema = model && musicSchema(model);
     if (!current || !clip || !take || !model || !schema) return;
     const can = editsOf(schema);
@@ -678,7 +677,7 @@ export function Studio() {
     const text = (field: string) => (typeof input[field] === 'string' ? (input[field] as string) : undefined);
     const number = (field: string) => (typeof input[field] === 'number' ? (input[field] as number) : undefined);
     if (name === 'make_music') {
-      const model = musicCard(models, picked);
+      const model = music.card;
       if (!model) throw new Error('No music model can run now.');
       await make({ card: model, words: text('words') ?? '', styles: [], seconds: number('seconds') ?? null, instrumental: false });
     } else if (name === 'change_clip') {
@@ -895,7 +894,7 @@ export function Studio() {
     void engine.current!.seek(current, seconds, ended).catch(fail);
   };
 
-  const card = musicCard(models, picked);
+  const card = music.card;
   const schema = card ? musicSchema(card) : null;
   const edits = schema ? editsOf(schema) : {};
   const editedClip = editing && song ? clipOf(song, editing.clip) : undefined;
@@ -1175,12 +1174,7 @@ export function Studio() {
               />
             ) : (
               <MakePanel
-                models={models}
-                card={card}
-                onPick={(id) => {
-                  localStorage.setItem('music-model', id);
-                  setPicked(id);
-                }}
+                model={music}
                 onMake={(request) => void make(request)}
                 lyrics={song.lyrics}
                 onLyrics={(lyrics) => void change((s) => ({ ...s, lyrics }))}

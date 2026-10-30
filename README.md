@@ -30,8 +30,8 @@ you keep: no credits, no download limits, no watermark.
 
 ## What it needs
 
-- A **music model** on Hearthscale Server. The studio lists the ones your
-  Server can install. Models differ: some sing, some make only
+- A **music model** on Hearthscale Server, chosen for Music studio on its
+  settings page in Hearthscale. Models differ: some sing, some make only
   instrumental music, and only some change existing audio. The studio
   offers only what the chosen model can do.
 - A **separation model**, such as HTDemucs, to split clips into parts.
@@ -42,7 +42,7 @@ you keep: no credits, no download limits, no watermark.
 - **Its own data**: your songs, versions and snippets, in the app's
   database on your computer.
 - **Model jobs**: music and splits made by the models you choose.
-- **Models**: the list of models, and the install of one when you ask.
+- **Models**: the models chosen for Music studio.
 - **The microphone**: only while you record.
 - **Folders you choose**: only when you export each track into a folder.
 - **Conversations**: the assistant's chats.
