@@ -68,7 +68,27 @@ Close and open the app's tab again after `npm run build` to load the view.
   engine's clock, so a take lines up with the song, less the measured
   latency.
 - **Snippets and versions** live in the database beside the songs. Audio is
-  released only when no song and no snippet uses it any more.
+  released only when no song and no snippet uses it any more. A snippet of
+  another tempo or key is fitted to the song when it is dropped
+  (`src/fit.ts`), with Signalsmith Stretch (MIT). The library builds its
+  AudioWorklet module as a `blob:` address, which a view may not load, so
+  `build.mjs` writes that module to `assets/stretch.js` and the view loads
+  it from the package.
+- **Track sounds and Louder** (`src/audio.ts`): Warmer and Brighter are
+  shelf filters, More space a room echo; Louder compresses the song and
+  makes up its level before the limiter.
+- **Export**: the song as a WAV through `ui/download-file`, or each track
+  alone into a folder the person picks (`roots`), written by the backend
+  tool `export_parts`. Both need a click: when rendering takes longer than
+  a click stays good for, a message offers Save.
+- **Opening files**: the surface `opens` common sound files; a file opened
+  with the app becomes a song of its own, once per file.
+- **The assistant** (`src/Assistant.tsx`, `src/context.ts`, `prompt/`):
+  the view places the shell's chat in a panel and keeps the open song in a
+  chip on that chat. The agent's tools (`make_music`, `change_clip`,
+  `split_clip`, `set_song`, `mix_track`) hand their input to the view as an
+  event (`events`), and the view does the same actions as its buttons, so
+  the song has one writer.
 - **Deleting** releases audio through the backend tool `forget_audio`,
   which only the app's views call.
 - **Settings**: `versions`, how many versions each AI action makes (1 to 4).

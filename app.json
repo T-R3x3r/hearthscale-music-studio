@@ -391,5 +391,35 @@
         ".m4a"
       ]
     }
-  ]
+  ],
+  "onboarding": {
+    "version": 1,
+    "cards": [
+      {
+        "title": "Make a song from words",
+        "text": "Describe the music, pick a few style words and press Make. A music model on your computer makes it. ACE-Step sings and changes parts of a song.",
+        "download": "audio-cpp/ace-step-1.5-turbo"
+      },
+      {
+        "title": "Shape it on tracks",
+        "rows": [
+          {
+            "icon": "music",
+            "title": "Loops and cuts",
+            "text": "Drag a clip to move it, its corner to loop it, its edges to trim it."
+          },
+          {
+            "icon": "speech",
+            "title": "Your own sound",
+            "text": "Record your voice or import a song, and split it into its parts."
+          },
+          {
+            "icon": "agent",
+            "title": "Ask",
+            "text": "Tell the assistant what to change, in your own words."
+          }
+        ]
+      }
+    ]
+  }
 }
