@@ -153,6 +153,20 @@ body {
   font-weight: var(--fw-semi);
 }
 
+.ms-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  animation: ms-appear var(--dur) var(--ease-out) var(--dur-slow) both;
+}
+
+@keyframes ms-appear {
+  from {
+    opacity: 0;
+  }
+}
+
 .ms-empty {
   display: flex;
   flex: 1;

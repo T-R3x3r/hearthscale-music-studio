@@ -12,6 +12,7 @@ import {
   SegmentedControl,
   SettingsSelect,
   ShellConfirm,
+  StatusWord,
   TextInput,
   Toast,
   useFloatingTips,
@@ -901,7 +902,15 @@ export function Studio() {
   const editedClip = editing && song ? clipOf(song, editing.clip) : undefined;
   const longestAdd = Math.max(2, (schema ? (abilities(schema).length?.max ?? LONGEST_ADD) : LONGEST_ADD) - Math.ceil(editedClip?.length ?? 0));
 
-  if (!loaded) return null;
+  if (!loaded) {
+    return (
+      <div className="ms-loading">
+        <StatusWord tone="info" live>
+          Loading
+        </StatusWord>
+      </div>
+    );
+  }
 
   const playTip = tips('play', 'Space');
   const exportTip = tips('export', song && songSeconds(song) > 0 ? undefined : 'Make some music first.');
