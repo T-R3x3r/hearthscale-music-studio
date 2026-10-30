@@ -631,10 +631,10 @@ body {
 
 .ms-length {
   display: flex;
+  flex: 1 1 calc(var(--space) * 40);
   align-items: center;
   gap: var(--gap-row);
-  width: calc(var(--space) * 84);
-  max-width: 100%;
+  max-width: calc(var(--space) * 84);
 }
 
 .ms-length > .hs-label {
