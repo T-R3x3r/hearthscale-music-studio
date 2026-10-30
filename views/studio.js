@@ -502,7 +502,9 @@ body {
   display: flex;
   align-items: center;
   gap: var(--gap-inline);
-  padding: calc(var(--space) * 0.5) calc(var(--space) * 6) calc(var(--space) * 0.5) calc(var(--space) * 1.5);
+  box-sizing: content-box;
+  min-height: var(--icon-ctl-sm);
+  padding: var(--space) calc(var(--space) * 6) var(--space) calc(var(--space) * 1.5);
 }
 
 .ms-clip-name {
