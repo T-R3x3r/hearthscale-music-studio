@@ -198,7 +198,7 @@ export class Engine {
     if (!decoded) {
       decoded = fetch(assetUrl(asset))
         .then((answer) => {
-          if (!answer.ok) throw new Error(`The audio did not load: ${answer.status}`);
+          if (!answer.ok) throw new Error('The audio could not be loaded. Try again.');
           return answer.arrayBuffer();
         })
         .then((bytes) => this.context.decodeAudioData(bytes));

@@ -43,7 +43,7 @@ export async function settle(song: Song, job: Job, engine: Engine): Promise<Song
       return plays ? { ...clip, take, versions, offset: 0, length: buffer.duration } : { ...clip, versions };
     });
   } else {
-    const failure = job.status === 'cancelled' ? 'Stopped.' : (job.error ?? 'The music model made no audio.');
+    const failure = job.status === 'cancelled' ? 'Stopped.' : (job.error ?? 'The music model returned no audio. Try again.');
     next = withClip(next, pending.clip, (clip) => ({ ...clip, expected: clip.expected - 1, failure }));
   }
   return tidy(next, pending.clip);

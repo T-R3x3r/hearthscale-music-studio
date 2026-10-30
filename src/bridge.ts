@@ -54,7 +54,7 @@ export async function readOpened(file: OpenedFile): Promise<Uint8Array<ArrayBuff
     _meta: { 'openai/resource': { representation: 'blob' } },
   });
   const first = contents[0];
-  if (!first || !('blob' in first)) throw new Error(`${file.name} could not be read`);
+  if (!first || !('blob' in first)) throw new Error(`Music studio could not open ${file.name}. Try again.`);
   return Uint8Array.from(atob(first.blob), (c) => c.charCodeAt(0));
 }
 
@@ -77,14 +77,14 @@ function context(): Partial<ViewHostContext> {
 /** The address an asset of the app streams from, whole or by range. */
 export function assetUrl(asset: string): string {
   const base = context()['hearthscale/assetBytes'];
-  if (!base) throw new Error('The host gives no address for audio');
+  if (!base) throw new Error('Music studio could not reach its audio. Open it again.');
   return base.url + asset;
 }
 
 /** The address of the app's own files under `assets/`. */
 export function assetsUrl(): string {
   const base = context()['hearthscale/assets'];
-  if (!base) throw new Error("The host gives no address for the app's files");
+  if (!base) throw new Error('Music studio could not reach its files. Open it again.');
   return base.url;
 }
 
@@ -132,7 +132,7 @@ export async function tool(name: string, args: Record<string, unknown>, label: s
   const result = await app.callServerTool({ name, arguments: args, _meta: { 'hearthscale/label': label } });
   if (result.isError) {
     const text = result.content.find((part) => part.type === 'text');
-    throw new Error(text && 'text' in text ? text.text : `${name} failed`);
+    throw new Error(text && 'text' in text ? text.text : `${label} did not finish. Try again.`);
   }
 }
 
@@ -154,7 +154,7 @@ export async function upload(name: string, mediaType: string, blob: Blob): Promi
     { method: 'hearthscale/ui/upload-file', params: { name, mediaType, blob } } as never,
     McpUiMessageResultSchema,
   )) as { asset?: string };
-  if (!answer.asset) throw new Error(`${name} was not kept`);
+  if (!answer.asset) throw new Error(`Music studio could not save ${name}. Try again.`);
   return answer.asset;
 }
 
@@ -169,7 +169,7 @@ export async function complete(request: CompletionRequest): Promise<string> {
     if ('text' in delta) {
       if (!delta.reasoning) text += delta.text;
     } else if (delta.stop === 'error') {
-      failure = delta.error ?? 'The chat model failed.';
+      failure = delta.error ?? 'The chat model stopped. Try again.';
     }
   });
   try {

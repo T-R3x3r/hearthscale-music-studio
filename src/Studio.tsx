@@ -312,7 +312,7 @@ export function Studio() {
         if (!isOver(job)) return;
         const pending = songRef.current?.pending.find((p) => p.job === job.id);
         const onAudio = pending && (pending.split || songRef.current?.takes[clipOf(songRef.current, pending.clip)?.take ?? '']);
-        if (job.status === 'failed' && onAudio) setProblem(job.error ?? 'The job failed.');
+        if (job.status === 'failed' && onAudio) setProblem(job.error ?? 'The music could not be made. Try again.');
         if (songRef.current?.pending.some((p) => p.job === job.id)) {
           void change(async (s) => withTempo(await settle(s, job, engine.current!)));
           return;
@@ -536,7 +536,7 @@ export function Studio() {
     for (const file of files) {
       try {
         const mediaType = file.type || mediaTypeOf(file.name);
-        const unreadable = new Error(`${file.name} is no sound file this app reads.`);
+        const unreadable = new Error(`Music studio could not open ${file.name}. Choose a WAV, MP3, FLAC, OGG or M4A file.`);
         if (!mediaType) throw unreadable;
         const asset = await upload(file.name, mediaType, file);
         const buffer = await engine.current!.buffer(asset).catch(async () => {
@@ -675,22 +675,22 @@ export function Studio() {
   /** Does what a tool of the assistant asks, with the studio's own actions, so each is one step of undo. */
   const assistant = async ({ tool: name, input }: AssistantCall) => {
     const current = songRef.current;
-    if (!current || input.song !== current.id) throw new Error('The assistant named a song that is not open.');
+    if (!current || input.song !== current.id) throw new Error('The assistant asked to change a song that is not open. Open it and ask again.');
     const text = (field: string) => (typeof input[field] === 'string' ? (input[field] as string) : undefined);
     const number = (field: string) => (typeof input[field] === 'number' ? (input[field] as number) : undefined);
     if (name === 'make_music') {
       const model = musicCard(models, picked);
-      if (!model) throw new Error('No music model can run now.');
+      if (!model) throw new Error('No music model is ready. Download one in the Make panel.');
       await make({ card: model, words: text('words') ?? '', styles: [], seconds: number('seconds') ?? null, instrumental: false });
     } else if (name === 'change_clip') {
       const kind = ASSISTANT_EDITS[text('how') ?? ''];
       const clip = clipOf(current, text('clip') ?? '');
-      if (!kind || !clip) throw new Error('The assistant named a clip or a change the studio does not know.');
+      if (!kind || !clip) throw new Error('The assistant asked for a change Music studio cannot make. Ask again in other words.');
       const bar = secondsPerBeat(current) * current.beatsPerBar;
       const first = number('from_bar');
       const last = number('to_bar');
-      if (kind === 'repaint' && (first === undefined || last === undefined)) throw new Error('Redo needs the first and the last bar.');
-      if (kind === 'add' && !text('part')) throw new Error('Adding a part needs the instrument.');
+      if (kind === 'repaint' && (first === undefined || last === undefined)) throw new Error('The assistant did not say which bars to redo. Ask again with the bars.');
+      if (kind === 'add' && !text('part')) throw new Error('The assistant did not say which instrument to add. Ask again with the instrument.');
       await performEdit(
         { kind, clip: clip.id, words: text('words') ?? '', change: number('change') ?? 0.5, seconds: number('seconds') ?? 15, part: text('part') ?? '' },
         kind === 'repaint' ? { from: (first! - 1) * bar, to: last! * bar } : null,
