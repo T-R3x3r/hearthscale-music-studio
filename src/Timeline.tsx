@@ -31,7 +31,7 @@ import {
   trimStart,
 } from './edit';
 import type { Edits } from './edits';
-import type { EditKind } from './EditPanel';
+import { EDITS, type EditKind } from './EditPanel';
 import { clipSeconds, clipStart, newId, secondsPerBeat, songSeconds, SOUNDS, withVersion, type Clip, type Song, type Sound, type Track } from './song';
 
 /** Seconds the timeline runs past the song's end. */
@@ -336,7 +336,7 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
                 Try again
               </Button>
             )}
-            <IconButton size="sm" aria-label="Remove" onClick={() => onEdit((s) => removeClip(s, clip.id))}>
+            <IconButton size="sm" aria-label="Remove clip" onClick={() => onEdit((s) => removeClip(s, clip.id))}>
               <Icon name="close-line" size={14} />
             </IconButton>
           </span>
@@ -428,12 +428,12 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
       </span>
       {menu && (
         <MenuSurface anchor={menu} onDismiss={() => setMenu(null)}>
-          {edits.restyle && <MItem icon={<Icon name="palette-line" size={14} />} label="Change the style" onClick={() => begin('restyle')} />}
-          {edits.repaint && <MItem icon={<Icon name="brush-line" size={14} />} label="Redo a part" onClick={() => begin('repaint')} />}
-          {edits.repaint && <MItem icon={<Icon name="expand-right-line" size={14} />} label="Make it longer" onClick={() => begin('longer')} />}
-          {edits.addPart && <MItem icon={<Icon name="add-circle-line" size={14} />} label="Add a part" onClick={() => begin('add')} />}
+          {edits.restyle && <MItem icon={<Icon name={EDITS.restyle.icon} size={14} />} label={EDITS.restyle.title} onClick={() => begin('restyle')} />}
+          {edits.repaint && <MItem icon={<Icon name={EDITS.repaint.icon} size={14} />} label={EDITS.repaint.title} onClick={() => begin('repaint')} />}
+          {edits.repaint && <MItem icon={<Icon name={EDITS.longer.icon} size={14} />} label={EDITS.longer.title} onClick={() => begin('longer')} />}
+          {edits.addPart && <MItem icon={<Icon name={EDITS.add.icon} size={14} />} label={EDITS.add.title} onClick={() => begin('add')} />}
           {(edits.restyle || edits.repaint || edits.addPart) && <MDivider />}
-          <MItem icon={<Icon name="scissors-cut-line" size={14} />} label="Cut at the playhead" disabled={!inside} onClick={() => act((s) => cutAt(s, clip.id, position))} />
+          <MItem icon={<Icon name="scissors-cut-line" size={14} />} label="Cut at playhead" disabled={!inside} onClick={() => act((s) => cutAt(s, clip.id, position))} />
           <MItem
             icon={<Icon name="file-copy-line" size={14} />}
             label="Duplicate"
@@ -448,7 +448,7 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
           <MItem icon={<Icon name="contrast-drop-2-line" size={14} />} label="Fade out" checked={clip.fadeOut > 0} onClick={() => act((s) => toggleFade(s, clip.id, 'out'))} />
           <MItem
             icon={<Icon name="git-branch-line" size={14} />}
-            label="Split into parts"
+            label="Split into stems"
             disabled={splitting}
             onClick={() => {
               setMenu(null);

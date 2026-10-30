@@ -100,7 +100,7 @@ const ZOOMS = [8, 12, 16, 24, 36, 54, 80, 120];
 /** The sample rate a separation job reads. */
 const SPLIT_RATE = 44_100;
 
-/** The most seconds Make it longer adds where the model states no longest piece. */
+/** The most seconds Extend adds where the model states no longest piece. */
 const LONGEST_ADD = 60;
 
 /** A recording shorter than this, in seconds, is dropped as a slip of the button. */
@@ -1287,7 +1287,7 @@ function barsOf(song: Song, clip: Clip, range: Range | null): { label: string } 
   const start = clipStart(song, clip);
   const from = range ? Math.max(range.from, start) : 0;
   const to = range ? Math.min(range.to, start + clip.length) : 0;
-  if (!range || to <= from) return { missing: 'Drag over the bar numbers above the tracks to choose the part.' };
+  if (!range || to <= from) return { missing: 'Drag across the bar numbers to choose the bars.' };
   const bar = secondsPerBeat(song) * song.beatsPerBar;
   const first = Math.floor(from / bar) + 1;
   const last = Math.max(first, Math.ceil(to / bar));

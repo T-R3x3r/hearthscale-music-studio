@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Chip, Icon, IconButton, Label, Slider, useFloatingTips, type IconName } from '@hearthscale/app-ui';
 import { PARTS } from './edits';
+import { sentenceCase } from './text';
 
 export type EditKind = 'restyle' | 'repaint' | 'longer' | 'add';
 
@@ -28,11 +29,12 @@ interface Props {
   onClose: () => void;
 }
 
-const TITLES: Record<EditKind, { title: string; icon: IconName }> = {
-  restyle: { title: 'Change the style', icon: 'palette-line' },
-  repaint: { title: 'Redo a part', icon: 'brush-line' },
-  longer: { title: 'Make it longer', icon: 'expand-right-line' },
-  add: { title: 'Add a part', icon: 'add-circle-line' },
+/** The name and the mark of each edit, in the clip's menu and on the panel. */
+export const EDITS: Record<EditKind, { title: string; icon: IconName }> = {
+  restyle: { title: 'Change style', icon: 'palette-line' },
+  repaint: { title: 'Redo bars', icon: 'brush-line' },
+  longer: { title: 'Extend', icon: 'expand-right-line' },
+  add: { title: 'Add instrument', icon: 'add-circle-line' },
 };
 
 export function EditPanel({ kind, clip, words: start, bars, longest, onGo, onClose }: Props) {
@@ -41,7 +43,7 @@ export function EditPanel({ kind, clip, words: start, bars, longest, onGo, onClo
   const [seconds, setSeconds] = useState(Math.min(longest, 15));
   const [part, setPart] = useState(PARTS[0]!);
   const tips = useFloatingTips('top');
-  const { title, icon } = TITLES[kind];
+  const { title, icon } = EDITS[kind];
   const missing = kind === 'repaint' && 'missing' in bars ? bars.missing : undefined;
   const blocked = missing ?? (words.trim() ? undefined : 'Describe the music first.');
   const go = tips('go', blocked);
@@ -58,8 +60,8 @@ export function EditPanel({ kind, clip, words: start, bars, longest, onGo, onClo
       </div>
       <textarea
         className="ms-words hs-ta"
-        aria-label="Describe the music"
-        placeholder="Describe the music"
+        aria-label="Description"
+        placeholder="Slow acoustic version with brushed drums"
         value={words}
         rows={2}
         onChange={(event) => setWords(event.target.value)}
@@ -68,7 +70,7 @@ export function EditPanel({ kind, clip, words: start, bars, longest, onGo, onClo
         <div className="ms-chips">
           {PARTS.map((name) => (
             <Chip key={name} selected={part === name} onClick={() => setPart(name)}>
-              {name}
+              {sentenceCase(name)}
             </Chip>
           ))}
         </div>
@@ -76,14 +78,14 @@ export function EditPanel({ kind, clip, words: start, bars, longest, onGo, onClo
       <div className="ms-make-row">
         {kind === 'restyle' && (
           <div className="ms-length">
-            <Label>How different</Label>
-            <Slider label="How different" value={change} onChange={setChange} step={0.05} shown={`${Math.round(change * 100)} %`} />
+            <Label>Amount of change</Label>
+            <Slider label="Amount of change" value={change} onChange={setChange} step={0.05} shown={`${Math.round(change * 100)}%`} />
           </div>
         )}
         {kind === 'longer' && (
           <div className="ms-length">
-            <Label>Seconds to add</Label>
-            <Slider label="Seconds to add" min={2} max={longest} step={1} value={seconds} onChange={setSeconds} shown={`${seconds} s`} />
+            <Label>Added length</Label>
+            <Slider label="Added length" min={2} max={longest} step={1} value={seconds} onChange={setSeconds} shown={`${seconds} s`} />
           </div>
         )}
         <div className="hs-flex-spacer" />

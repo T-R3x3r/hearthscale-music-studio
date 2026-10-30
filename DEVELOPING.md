@@ -65,7 +65,7 @@ Close and open the app's tab again after `npm run build` to load the view.
   `route` enum (`cover`, `repaint`, `lego`) or an `audioInputKind` enum
   (`init_audio`, `inpaint_audio`). An edit renders the clip to a WAV,
   uploads it as the job's `audio`, keeps the clip's own audio as its first
-  version, and plays the result at once. Make it longer redraws silence
+  version, and plays the result at once. Extend redraws silence
   added after the clip.
 - **Splits**: a clip rendered at 44.1 kHz goes to a `separation` job; each
   part lands on a track of its own and the source track mutes.
