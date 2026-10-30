@@ -211,6 +211,8 @@ function Installs({ models, cards }: { models: MusicModels; cards: ModelCard[] }
   );
 }
 
+/** A size in units of 1024, as Hearthscale shows the sizes of models. */
 function gigabytes(bytes: number): string {
-  return bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / 1e6))} MB`;
+  const gib = bytes / 2 ** 30;
+  return gib >= 1 ? `${gib.toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / 2 ** 20))} MB`;
 }
