@@ -419,14 +419,14 @@ body {
 }
 
 .ms-grip-loop {
-  top: 0;
-  right: 0;
+  top: var(--space);
+  right: var(--space);
   display: flex;
   align-items: center;
   justify-content: center;
   width: calc(var(--space) * 5);
   height: calc(var(--space) * 5);
-  border-bottom-left-radius: var(--r-sm);
+  border-radius: var(--r-sm);
   background: var(--swatch);
   color: var(--swatch-fill-ink);
   cursor: col-resize;
