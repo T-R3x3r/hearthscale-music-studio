@@ -1103,7 +1103,12 @@ export function Studio() {
               <Icon name="skip-back-line" size={16} />
             </TipIconButton>
             <span className="hs-tipwrap" {...playTip.hover}>
-              <Button variant="secondary" icon={<Icon name={playing ? 'pause-line' : 'play-line'} size={14} />} onClick={() => void togglePlay()}>
+              <Button
+                variant="secondary"
+                className="ms-play"
+                icon={<Icon name={playing ? 'pause-line' : 'play-line'} size={14} />}
+                onClick={() => void togglePlay()}
+              >
                 {playing ? 'Pause' : 'Play'}
               </Button>
               {playTip.tip}
