@@ -1039,6 +1039,18 @@ export function Studio() {
                           picker.current?.click();
                         }}
                       />
+                      <MItem
+                        icon={<Icon name="zoom-out-line" size={14} />}
+                        label="Zoom out"
+                        disabled={zoom === 0}
+                        onClick={() => setZoom((z) => Math.max(0, z - 1))}
+                      />
+                      <MItem
+                        icon={<Icon name="zoom-in-line" size={14} />}
+                        label="Zoom in"
+                        disabled={zoom === ZOOMS.length - 1}
+                        onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))}
+                      />
                       <MDivider />
                     </>
                   )}
@@ -1153,15 +1165,19 @@ export function Studio() {
             </IconButton>
             {louderTip.tip}
           </span>
-          <div className="hs-flex-spacer" />
-          <div className="ms-group">
-            <TipIconButton aria-label="Zoom out" disabled={zoom === 0} onClick={() => setZoom((z) => Math.max(0, z - 1))}>
-              <Icon name="zoom-out-line" size={16} />
-            </TipIconButton>
-            <TipIconButton aria-label="Zoom in" disabled={zoom === ZOOMS.length - 1} onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))}>
-              <Icon name="zoom-in-line" size={16} />
-            </TipIconButton>
-          </div>
+          {!narrow && (
+            <>
+              <div className="hs-flex-spacer" />
+              <div className="ms-group">
+                <TipIconButton aria-label="Zoom out" disabled={zoom === 0} onClick={() => setZoom((z) => Math.max(0, z - 1))}>
+                  <Icon name="zoom-out-line" size={16} />
+                </TipIconButton>
+                <TipIconButton aria-label="Zoom in" disabled={zoom === ZOOMS.length - 1} onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))}>
+                  <Icon name="zoom-in-line" size={16} />
+                </TipIconButton>
+              </div>
+            </>
+          )}
         </div>
       )}
       {problem && (

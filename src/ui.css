@@ -629,6 +629,15 @@ body {
   gap: var(--gap-label);
 }
 
+.ms-studio[data-narrow] .ms-chips {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.ms-studio[data-narrow] .ms-chips .hs-chip {
+  flex: none;
+}
+
 .ms-make-row {
   display: flex;
   flex-wrap: wrap;
