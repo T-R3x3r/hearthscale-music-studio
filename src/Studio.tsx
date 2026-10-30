@@ -53,6 +53,7 @@ import {
 } from './library';
 import { EditPanel, type EditKind, type EditRequest } from './EditPanel';
 import { editsOf } from './edits';
+import { fit, semitonesBetween } from './fit';
 import { lyricsText } from './lyrics';
 import { MakePanel, type MakeRequest } from './MakePanel';
 import { musicCard, useMusicModels } from './models';
@@ -109,6 +110,9 @@ interface AssistantCall {
 
 /** The edit each change the assistant names stands for. */
 const ASSISTANT_EDITS: Record<string, EditKind> = { style: 'restyle', redo: 'repaint', longer: 'longer', part: 'add' };
+
+/** A tempo this close to the song's, as a share, plays as it is. */
+const SAME_TEMPO = 0.01;
 
 /** The most edits undo goes back through. */
 const HISTORY = 200;
@@ -717,17 +721,32 @@ export function Studio() {
     }
   };
 
-  const dropSnippet = (id: string, track: string | null, beat: number) => {
+  /** Puts a snippet on a track; one of another tempo or key is fitted to the song's first. */
+  const dropSnippet = async (id: string, track: string | null, beat: number) => {
     const snippet = snippets.find((s) => s.id === id);
-    if (!snippet) return;
-    void edit((s) => {
-      const take = newId();
-      const target = track ? { song: s, track } : addTrack(s, snippet.name);
-      return {
-        ...placeClip(target.song, target.track, newClip(take, beat, snippet.length, snippet.offset)),
-        takes: { ...s.takes, [take]: { asset: snippet.asset, seconds: snippet.seconds, made: 'imported', words: snippet.name } },
-      };
-    });
+    const current = songRef.current;
+    if (!snippet || !current) return;
+    const speed = snippet.tempo && current.tempo ? current.tempo / snippet.tempo : 1;
+    const semitones = semitonesBetween(snippet.key, current.key);
+    try {
+      let audio = { asset: snippet.asset, seconds: snippet.seconds, offset: snippet.offset, length: snippet.length };
+      if (Math.abs(speed - 1) > SAME_TEMPO || semitones !== 0) {
+        const piece = await excerpt(engine.current!, snippet.asset, snippet.offset, snippet.length, RATE);
+        const fitted = await fit(piece, speed, semitones);
+        const asset = await upload(`${snippet.name}.wav`, 'audio/wav', wav(fitted));
+        audio = { asset, seconds: fitted.duration, offset: 0, length: fitted.duration };
+      }
+      await edit((s) => {
+        const take = newId();
+        const target = track ? { song: s, track } : addTrack(s, snippet.name);
+        return {
+          ...placeClip(target.song, target.track, newClip(take, beat, audio.length, audio.offset)),
+          takes: { ...s.takes, [take]: { asset: audio.asset, seconds: audio.seconds, made: 'imported', words: snippet.name } },
+        };
+      });
+    } catch (error) {
+      fail(error);
+    }
   };
 
   const removeSnippet = async (snippet: Snippet) => {
@@ -1097,7 +1116,7 @@ export function Studio() {
                   onRange={setRange}
                   edits={edits}
                   onEditStart={(kind, clip) => setEditing({ kind, clip })}
-                  onDropSnippet={dropSnippet}
+                  onDropSnippet={(id, track, beat) => void dropSnippet(id, track, beat)}
                 />
               ) : (
                 <div className="ms-empty">
