@@ -1043,6 +1043,7 @@ export function Studio() {
                           picker.current?.click();
                         }}
                       />
+                      <MDivider />
                       <MItem
                         icon={<Icon name="zoom-out-line" size={14} />}
                         label="Zoom out"
