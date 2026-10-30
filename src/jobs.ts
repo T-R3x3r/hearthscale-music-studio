@@ -39,7 +39,7 @@ export async function settle(song: Song, job: Job, engine: Engine): Promise<Song
     };
     next = withClip(next, pending.clip, (clip) => {
       const versions = [...clip.versions, take];
-      const plays = !clip.take || (pending.edit && clip.take === clip.versions[0]);
+      const plays = !clip.take || pending.edit === true;
       return plays ? { ...clip, take, versions, offset: 0, length: buffer.duration } : { ...clip, versions };
     });
   } else {
