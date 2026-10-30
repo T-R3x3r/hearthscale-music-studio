@@ -1103,24 +1103,42 @@ export function Studio() {
             <TipIconButton aria-label="Go to start" onClick={() => seek(0)}>
               <Icon name="skip-back-line" size={16} />
             </TipIconButton>
-            <span className="hs-tipwrap" {...playTip.hover}>
-              <Button
-                variant="secondary"
-                className="ms-play"
-                icon={<Icon name={playing ? 'pause-line' : 'play-line'} size={14} />}
-                onClick={() => void togglePlay()}
-              >
-                {playing ? 'Pause' : 'Play'}
-              </Button>
-              {playTip.tip}
-            </span>
-            <Button
-              variant={recordingNow ? 'danger' : 'secondary'}
-              icon={<Icon name={recordingNow ? 'stop-line' : 'record-circle-line'} size={14} />}
-              onClick={() => void record()}
-            >
-              {recordingNow ? 'Stop recording' : 'Record'}
-            </Button>
+            {narrow ? (
+              <>
+                <TipIconButton aria-label={playing ? 'Pause' : 'Play'} onClick={() => void togglePlay()}>
+                  <Icon name={playing ? 'pause-line' : 'play-line'} size={16} />
+                </TipIconButton>
+                <TipIconButton
+                  className="ms-switch-button"
+                  aria-label={recordingNow ? 'Stop recording' : 'Record'}
+                  aria-pressed={recordingNow}
+                  onClick={() => void record()}
+                >
+                  <Icon name={recordingNow ? 'stop-line' : 'record-circle-line'} size={16} />
+                </TipIconButton>
+              </>
+            ) : (
+              <>
+                <span className="hs-tipwrap" {...playTip.hover}>
+                  <Button
+                    variant="secondary"
+                    className="ms-play"
+                    icon={<Icon name={playing ? 'pause-line' : 'play-line'} size={14} />}
+                    onClick={() => void togglePlay()}
+                  >
+                    {playing ? 'Pause' : 'Play'}
+                  </Button>
+                  {playTip.tip}
+                </span>
+                <Button
+                  variant={recordingNow ? 'danger' : 'secondary'}
+                  icon={<Icon name={recordingNow ? 'stop-line' : 'record-circle-line'} size={14} />}
+                  onClick={() => void record()}
+                >
+                  {recordingNow ? 'Stop recording' : 'Record'}
+                </Button>
+              </>
+            )}
             <span className="hs-tipwrap" {...metronomeTip.hover}>
               <IconButton
                 className="ms-switch-button"

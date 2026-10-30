@@ -653,9 +653,8 @@ body {
 }
 
 .ms-model-slot {
-  flex-shrink: 1;
-  width: calc(var(--space) * 64);
-  min-width: calc(var(--space) * 32);
+  flex: 1 1 calc(var(--space) * 32);
+  max-width: calc(var(--space) * 64);
   height: var(--h-ctl);
 }
 
