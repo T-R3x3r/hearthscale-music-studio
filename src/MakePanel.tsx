@@ -96,7 +96,12 @@ export function MakePanel({ models, card, onPick, onMake, lyrics, onLyrics }: Pr
           </label>
         )}
         {can?.sings && !instrumental && (
-          <Button variant={writing ? 'secondary' : 'ghost'} icon={<Icon name="quill-pen-line" size={14} />} onClick={() => setWriting((w) => !w)}>
+          <Button
+            variant={writing ? 'secondary' : 'ghost'}
+            aria-pressed={writing}
+            icon={<Icon name="quill-pen-line" size={14} />}
+            onClick={() => setWriting((w) => !w)}
+          >
             Lyrics
           </Button>
         )}
