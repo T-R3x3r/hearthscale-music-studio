@@ -326,6 +326,7 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
   if (!take) {
     const job = waiting.map((p) => jobs[p.job]).find(Boolean);
     const hold = tips('hold', job?.waiting ?? clip.failure);
+    const retry = tips('retry', 'Try again');
     return (
       <div className="ms-clip ms-clip-waiting" style={{ left, width }} onClick={stop}>
         <span className="hs-tipwrap" {...hold.hover}>
@@ -341,9 +342,12 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
         {waiting.length === 0 && (
           <span className="ms-versions">
             {clip.ask && (
-              <Button size="sm" variant="secondary" icon={<Icon name="refresh-line" size={14} />} onClick={() => onRetry(clip.id)}>
-                Try again
-              </Button>
+              <span className="hs-tipwrap" {...retry.hover}>
+                <IconButton size="sm" aria-label="Try again" onClick={() => onRetry(clip.id)}>
+                  <Icon name="refresh-line" size={14} />
+                </IconButton>
+                {retry.tip}
+              </span>
             )}
             <IconButton size="sm" aria-label="Remove clip" onClick={() => onEdit((s) => removeClip(s, clip.id))}>
               <Icon name="close-line" size={14} />
