@@ -559,7 +559,7 @@ body {
   top: 0;
   bottom: 0;
   width: var(--bw);
-  background: var(--accent);
+  background: var(--text);
   pointer-events: none;
 }
 
