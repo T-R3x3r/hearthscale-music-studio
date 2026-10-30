@@ -366,6 +366,10 @@ body {
   color: var(--swatch-ink);
 }
 
+.ms-lane[data-silent] .ms-clip {
+  filter: saturate(0);
+}
+
 .ms-clip:not(.ms-clip-waiting) {
   cursor: grab;
   touch-action: none;

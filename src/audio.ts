@@ -38,7 +38,8 @@ function click(context: BaseAudioContext, when: number, downbeat: boolean): void
 /** Waveform points kept per second of audio. */
 export const PEAKS_PER_SECOND = 200;
 
-function audible(song: Song, track: Track): boolean {
+/** Whether a track sounds: not muted, and solo while any track is. */
+export function audible(song: Song, track: Track): boolean {
   const solo = song.tracks.some((t) => t.solo);
   return !track.muted && (!solo || track.solo);
 }

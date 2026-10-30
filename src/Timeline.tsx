@@ -14,7 +14,7 @@ import {
   type MenuAnchor,
 } from '@hearthscale/app-ui';
 import type { Job } from '@hearthscale/app';
-import { PEAKS_PER_SECOND, peaks, type Engine } from './audio';
+import { audible, PEAKS_PER_SECOND, peaks, type Engine } from './audio';
 import { onLookChange } from './bridge';
 import {
   changeTrack,
@@ -219,6 +219,7 @@ export function Timeline(props: Props) {
               key={track.id}
               className="ms-lane"
               data-swatch={track.swatch}
+              data-silent={!audible(shown, track) || undefined}
               data-track={track.id}
               onClick={seek}
               onDragOver={allowSnippet}
