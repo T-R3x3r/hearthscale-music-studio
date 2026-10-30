@@ -36,7 +36,7 @@ Music studio runs models on your Hearthscale Server.
 - **A music model** makes and changes the music. When you first open
   Music studio, its introduction offers Stable Audio 3 Small Music, which
   runs on most computers: choose **Download** on that card. To use another
-  model, open the model picker at the start of the Make panel's last row.
+  model, open the model picker beside **Make**.
   It shows each model's memory, and **Download** for a model that is not
   on your computer yet.
 - **Singing** needs a model that sings, such as ACE-Step 1.5. It needs
