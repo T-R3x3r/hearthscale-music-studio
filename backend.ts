@@ -12,6 +12,14 @@ const backend: Backend = {
       for (const asset of assets) await ctx.assets.release(asset);
       return `Deleted ${assets.length} audio file${assets.length === 1 ? '' : 's'}.`;
     },
+    async export_parts(input) {
+      const { root, files } = input as { root: string; files: { asset: string; name: string }[] };
+      for (const file of files) {
+        await ctx.fs.export(file.asset, { root, path: file.name });
+        await ctx.assets.release(file.asset);
+      }
+      return `Saved ${files.length} file${files.length === 1 ? '' : 's'}.`;
+    },
   },
 };
 

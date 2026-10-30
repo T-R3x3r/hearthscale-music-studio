@@ -85,8 +85,13 @@ export interface Track {
   pan: number;
   muted: boolean;
   solo: boolean;
+  /** A named sound the track plays through, or none. */
+  sound: Sound | null;
   clips: Clip[];
 }
+
+export const SOUNDS = { warm: 'Warmer', bright: 'Brighter', space: 'More space' } as const;
+export type Sound = keyof typeof SOUNDS;
 
 export interface Song {
   id: string;
@@ -101,6 +106,8 @@ export interface Song {
   pending: Pending[];
   /** The words a singing model sings, by section. */
   lyrics: LyricSection[];
+  /** The song plays through a compressor that makes it louder and more even. */
+  louder: boolean;
 }
 
 export const SWATCHES = ['ocean', 'ember', 'jade', 'violet', 'sun', 'rose', 'sky', 'lime', 'plum', 'amber', 'indigo', 'moss'] as const;
@@ -114,12 +121,12 @@ export function newId(): string {
 }
 
 export function newSong(title: string): Song {
-  return { id: newId(), title, tempo: null, key: null, beatsPerBar: 4, tracks: [], takes: {}, pending: [], lyrics: [] };
+  return { id: newId(), title, tempo: null, key: null, beatsPerBar: 4, tracks: [], takes: {}, pending: [], lyrics: [], louder: false };
 }
 
 export function newTrack(song: Song, name: string): Track {
   const swatch = SWATCHES[song.tracks.length % SWATCHES.length]!;
-  return { id: newId(), name, swatch, volume: 1, pan: 0, muted: false, solo: false, clips: [] };
+  return { id: newId(), name, swatch, volume: 1, pan: 0, muted: false, solo: false, sound: null, clips: [] };
 }
 
 export function secondsPerBeat(song: Song): number {

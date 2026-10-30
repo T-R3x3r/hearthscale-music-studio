@@ -10,6 +10,7 @@ import {
   Slider,
   StatusWord,
   useFloatingTips,
+  type IconName,
   type MenuAnchor,
 } from '@hearthscale/app-ui';
 import type { Job } from '@hearthscale/app';
@@ -30,7 +31,7 @@ import {
 } from './edit';
 import type { Edits } from './edits';
 import type { EditKind } from './EditPanel';
-import { clipSeconds, clipStart, newId, secondsPerBeat, songSeconds, withVersion, type Clip, type Song, type Track } from './song';
+import { clipSeconds, clipStart, newId, secondsPerBeat, songSeconds, SOUNDS, withVersion, type Clip, type Song, type Sound, type Track } from './song';
 
 /** Seconds the timeline runs past the song's end. */
 const TAIL = 30;
@@ -42,6 +43,8 @@ const DRAG_START = 3;
 export const SNIPPET_DRAG = 'application/x-music-studio-snippet';
 
 type Edit = (song: Song) => Song;
+
+const SOUND_ICONS: Record<Sound, IconName> = { warm: 'sun-line', bright: 'sparkling-line', space: 'building-line' };
 
 export interface Range {
   from: number;
@@ -266,6 +269,16 @@ function TrackHead({ track, onEdit }: { track: Track; onEdit: (edit: Edit) => vo
           <MItem icon={<Icon name="arrow-left-line" size={14} />} label="Pan left" checked={track.pan < 0} onClick={() => set({ pan: -0.6 })} />
           <MItem icon={<Icon name="focus-3-line" size={14} />} label="Pan centre" checked={track.pan === 0} onClick={() => set({ pan: 0 })} />
           <MItem icon={<Icon name="arrow-right-line" size={14} />} label="Pan right" checked={track.pan > 0} onClick={() => set({ pan: 0.6 })} />
+          <MDivider />
+          {(Object.keys(SOUNDS) as Sound[]).map((sound) => (
+            <MItem
+              key={sound}
+              icon={<Icon name={SOUND_ICONS[sound]} size={14} />}
+              label={SOUNDS[sound]}
+              checked={track.sound === sound}
+              onClick={() => set({ sound: track.sound === sound ? null : sound })}
+            />
+          ))}
           <MDivider />
           <MItem
             icon={<Icon name="delete-bin-line" size={14} />}

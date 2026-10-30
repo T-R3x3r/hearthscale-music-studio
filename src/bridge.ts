@@ -23,6 +23,32 @@ app.fallbackNotificationHandler = async (note) => {
   for (const listener of listeners) listener(note as ViewExtensionNotification);
 };
 
+/** A file the person opened with the app, as the host hands it to the view. */
+export interface OpenedFile {
+  name: string;
+  resourceUri: string;
+}
+
+let firstInput: (input: { file?: OpenedFile }) => void;
+
+/** The view's first tool input: `{}`, or the file the person opened the app with. */
+export const toolInput = new Promise<{ file?: OpenedFile }>((resolve) => {
+  firstInput = resolve;
+});
+
+app.ontoolinput = ({ arguments: input }) => firstInput((input ?? {}) as { file?: OpenedFile });
+
+/** The bytes of a file the person opened with the app. */
+export async function readOpened(file: OpenedFile): Promise<Uint8Array<ArrayBuffer>> {
+  const { contents } = await app.readServerResource({
+    uri: file.resourceUri,
+    _meta: { 'openai/resource': { representation: 'blob' } },
+  });
+  const first = contents[0];
+  if (!first || !('blob' in first)) throw new Error(`${file.name} could not be read`);
+  return Uint8Array.from(atob(first.blob), (c) => c.charCodeAt(0));
+}
+
 function context(): Partial<ViewHostContext> {
   return (app.getHostContext() ?? {}) as Partial<ViewHostContext>;
 }

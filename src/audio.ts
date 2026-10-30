@@ -4,7 +4,7 @@
  * export renders the same graph in an OfflineAudioContext.
  */
 import { assetUrl } from './bridge';
-import { clipSeconds, clipStart, secondsPerBeat, songSeconds, type Song, type Track } from './song';
+import { clipSeconds, clipStart, secondsPerBeat, songSeconds, type Song, type Sound, type Track } from './song';
 
 export const RATE = 48_000;
 
@@ -59,6 +59,7 @@ function schedule(
   limiter.attack.value = 0.003;
   limiter.release.value = 0.1;
   limiter.connect(out);
+  const bus = song.louder ? louder(context, limiter) : limiter;
   const sources: AudioBufferSourceNode[] = [];
   for (const track of song.tracks) {
     if (!audible(song, track)) continue;
@@ -66,7 +67,8 @@ function schedule(
     gain.gain.value = track.volume;
     const pan = context.createStereoPanner();
     pan.pan.value = track.pan;
-    gain.connect(pan).connect(limiter);
+    pan.connect(bus);
+    gain.connect(track.sound ? colour(context, track.sound, pan) : pan);
     for (const clip of track.clips) {
       const take = song.takes[clip.take];
       const buffer = take && buffers.get(take.asset);
@@ -90,6 +92,61 @@ function schedule(
     }
   }
   return sources;
+}
+
+/** A compressor that evens the song out, and the gain that makes up what it took: the input of `out`. */
+function louder(context: BaseAudioContext, out: AudioNode): AudioNode {
+  const squeeze = context.createDynamicsCompressor();
+  squeeze.threshold.value = -20;
+  squeeze.knee.value = 10;
+  squeeze.ratio.value = 3;
+  squeeze.attack.value = 0.01;
+  squeeze.release.value = 0.2;
+  const makeUp = context.createGain();
+  makeUp.gain.value = 1.8;
+  squeeze.connect(makeUp).connect(out);
+  return squeeze;
+}
+
+/** The input of a named sound that ends in `out`. */
+function colour(context: BaseAudioContext, sound: Sound, out: AudioNode): AudioNode {
+  if (sound === 'space') {
+    const dry = context.createGain();
+    const wet = context.createConvolver();
+    wet.buffer = room(context);
+    const level = context.createGain();
+    level.gain.value = 0.35;
+    dry.connect(out);
+    dry.connect(wet).connect(level).connect(out);
+    return dry;
+  }
+  const low = context.createBiquadFilter();
+  low.type = 'lowshelf';
+  low.frequency.value = 250;
+  low.gain.value = sound === 'warm' ? 3 : -1;
+  const high = context.createBiquadFilter();
+  high.type = 'highshelf';
+  high.frequency.value = sound === 'warm' ? 5000 : 3500;
+  high.gain.value = sound === 'warm' ? -4 : 4;
+  low.connect(high).connect(out);
+  return low;
+}
+
+const rooms = new WeakMap<BaseAudioContext, AudioBuffer>();
+
+/** A room's echo: two seconds of noise that dies away, a channel each side. */
+function room(context: BaseAudioContext): AudioBuffer {
+  let found = rooms.get(context);
+  if (!found) {
+    const seconds = 2.2;
+    found = context.createBuffer(2, Math.round(seconds * context.sampleRate), context.sampleRate);
+    for (let c = 0; c < 2; c++) {
+      const data = found.getChannelData(c);
+      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 3);
+    }
+    rooms.set(context, found);
+  }
+  return found;
 }
 
 /** Shapes a clip's gain from where playback starts: up over the fade in, down over the fade out. */

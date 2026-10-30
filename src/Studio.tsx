@@ -1,19 +1,37 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  anchorFrom,
   Button,
   EmptyState,
   Icon,
   IconButton,
+  MenuSurface,
+  MItem,
   SettingsSelect,
   ShellConfirm,
   TextInput,
   Toast,
   useFloatingTips,
+  type MenuAnchor,
 } from '@hearthscale/app-ui';
 import type { Job } from '@hearthscale/app';
 import { findTempo } from './analyse';
 import { Engine, excerpt, RATE, wav } from './audio';
-import { assetsUrl, call, keepWidgetState, onNote, reason, saveFile, settings, tool, upload, widgetState } from './bridge';
+import {
+  assetsUrl,
+  call,
+  keepWidgetState,
+  onNote,
+  readOpened,
+  reason,
+  saveFile,
+  settings,
+  tool,
+  toolInput,
+  upload,
+  widgetState,
+  type OpenedFile,
+} from './bridge';
 import { addTrack, clipOf, duplicate, newClip, placeClip, removeClip } from './edit';
 import { catchUp, isOver, settle } from './jobs';
 import {
@@ -113,6 +131,7 @@ export function Studio() {
   const [zoom, setZoom] = useState(3);
   const [snippets, setSnippets] = useState<Snippet[]>([]);
   const [previewing, setPreviewing] = useState<string | null>(null);
+  const [exportMenu, setExportMenu] = useState<MenuAnchor | null>(null);
   const [metronome, setMetronome] = useState(() => localStorage.getItem('music-metronome') === 'on');
   const [recordingNow, setRecordingNow] = useState(false);
   const recording = useRef<{ recorder: Recorder; startAt: number; from: number } | null>(null);
@@ -706,7 +725,7 @@ export function Studio() {
     const pressed = Date.now();
     try {
       const file = wav(await engine.current!.render(current));
-      const name = `${current.title.replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'Song'}.wav`;
+      const name = `${safeName(current.title) || 'Song'}.wav`;
       const save = () => void saveFile(name, 'audio/wav', file).catch(fail);
       if (Date.now() - pressed < CLICK_WINDOW_MS) save();
       else setNotice({ text: 'The song is ready.', action: { label: 'Save', onPress: save } });
@@ -714,6 +733,64 @@ export function Studio() {
       fail(error);
     }
   };
+
+  /** Renders each track alone and saves the files into a folder the person picks. */
+  const exportTracks = async () => {
+    const current = songRef.current;
+    if (!current) return;
+    try {
+      const { mount } = await call('hearthscale/roots/request', {
+        purpose: `The folder for the tracks of ${current.title}`,
+        shape: 'folder',
+        mode: 'read-write',
+      });
+      if (!mount) return;
+      const sounding = current.tracks.filter((t) => t.clips.some((c) => current.takes[c.take]));
+      const files: { asset: string; name: string }[] = [];
+      for (const [i, track] of sounding.entries()) {
+        const alone = { ...current, tracks: [{ ...track, muted: false, solo: false }] };
+        const name = `${i + 1} ${safeName(track.name) || 'Track'}.wav`;
+        files.push({ asset: await upload(name, 'audio/wav', wav(await engine.current!.render(alone))), name });
+      }
+      const save = () =>
+        void tool('export_parts', { root: mount.handle, files }, 'Save tracks').then(
+          () => setNotice({ text: 'Tracks saved.' }),
+          fail,
+        );
+      setNotice({ text: 'The tracks are ready.', action: { label: 'Save', onPress: save } });
+    } catch (error) {
+      fail(error);
+    }
+  };
+
+  /** Makes a song of a sound file the person opened with the app, once for each file. */
+  const openFile = async (file: OpenedFile) => {
+    const made = localStorage.getItem(`opened:${file.resourceUri}`);
+    if (made && (await loadSong(made))) {
+      await open(made);
+      return;
+    }
+    const bytes = await readOpened(file);
+    const created = newSong(file.name.replace(/\.[^.]+$/, ''));
+    await saveSong(created);
+    localStorage.setItem(`opened:${file.resourceUri}`, created.id);
+    await refreshRows();
+    await open(created.id);
+    await importFiles([new File([bytes], file.name, { type: mediaTypeOf(file.name) ?? '' })]);
+  };
+  const openFileRef = useRef(openFile);
+  openFileRef.current = openFile;
+
+  useEffect(() => {
+    if (!loaded) return;
+    let live = true;
+    void toolInput.then((input) => {
+      if (live && input.file) openFileRef.current(input.file).catch(fail);
+    });
+    return () => {
+      live = false;
+    };
+  }, [loaded, fail]);
 
   const seek = (seconds: number) => {
     const current = songRef.current;
@@ -847,12 +924,32 @@ export function Studio() {
                   variant="secondary"
                   icon={<Icon name="download-2-line" size={14} />}
                   disabled={songSeconds(song) === 0}
-                  onClick={() => void exportSong()}
+                  onClick={(event) => setExportMenu(anchorFrom('export', event))}
                 >
                   Export
                 </Button>
                 {exportTip.tip}
               </span>
+              {exportMenu && (
+                <MenuSurface anchor={exportMenu} onDismiss={() => setExportMenu(null)}>
+                  <MItem
+                    icon={<Icon name="music-2-line" size={14} />}
+                    label="The song"
+                    onClick={() => {
+                      setExportMenu(null);
+                      void exportSong();
+                    }}
+                  />
+                  <MItem
+                    icon={<Icon name="folder-music-line" size={14} />}
+                    label="Each track into a folder"
+                    onClick={() => {
+                      setExportMenu(null);
+                      void exportTracks();
+                    }}
+                  />
+                </MenuSurface>
+              )}
               <IconButton aria-label={panel ? 'Hide snippets' : 'Show snippets'} onClick={() => setPanel((p) => !p)}>
                 <Icon name="bookmark-line" size={16} />
               </IconButton>
@@ -888,6 +985,15 @@ export function Studio() {
               }}
             >
               <Icon name="timer-flash-line" size={14} />
+            </button>
+            <button
+              type="button"
+              className="ms-toggle"
+              aria-label="Louder"
+              aria-pressed={song.louder}
+              onClick={() => void edit((s) => ({ ...s, louder: !s.louder }))}
+            >
+              <Icon name="volume-up-line" size={14} />
             </button>
             <span className="ms-mono ms-clock">{clock(position)}</span>
             <div className="ms-grow" />
@@ -1036,6 +1142,11 @@ const SOUND_TYPES: Record<string, string> = {
 /** The media type of a sound file by its extension, for a file the system gives none. */
 function mediaTypeOf(name: string): string | undefined {
   return SOUND_TYPES[name.split('.').pop()?.toLowerCase() ?? ''];
+}
+
+/** A name that every system takes as a file name. */
+function safeName(name: string): string {
+  return name.replace(/[\\/:*?"<>|]+/g, ' ').trim();
 }
 
 function clock(seconds: number): string {

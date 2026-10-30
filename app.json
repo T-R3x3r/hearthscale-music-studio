@@ -11,7 +11,7 @@
   "payment": "free",
   "environment": { "kind": "process" },
   "permissions": ["microphone"],
-  "uses": ["db", "jobs", "models"],
+  "uses": ["db", "jobs", "models", "roots"],
   "models": { "music": { "required": false }, "separation": { "required": false }, "chat": { "required": false } },
   "settings": {
     "schema": {
@@ -43,6 +43,32 @@
       "mutating": true,
       "outbound": false,
       "visibility": ["app"]
+    },
+    {
+      "name": "export_parts",
+      "title": "Save tracks",
+      "description": "Saves audio files into a folder the person gave the app, then deletes the app's copies.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "root": { "type": "string", "description": "The handle of the folder's mount." },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "asset": { "type": "string", "description": "The id of the audio asset." },
+                "name": { "type": "string", "description": "The file name in the folder." }
+              },
+              "required": ["asset", "name"]
+            }
+          }
+        },
+        "required": ["root", "files"]
+      },
+      "mutating": true,
+      "outbound": false,
+      "visibility": ["app"]
     }
   ],
   "surfaces": [
@@ -51,7 +77,8 @@
       "kind": "view",
       "title": "Music studio",
       "entry": "views/studio.js",
-      "placements": ["rail", "tab"]
+      "placements": ["rail", "tab"],
+      "opens": [".wav", ".mp3", ".flac", ".ogg", ".m4a"]
     }
   ]
 }
