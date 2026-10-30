@@ -19,7 +19,7 @@ export interface EditRequest {
 interface Props {
   kind: EditKind;
   clip: string;
-  /** The words the clip was made from, which the panel starts with. */
+  /** The words the music model made the clip from, which the panel starts with; empty for audio of another source. */
   words: string;
   /** The bars a part to redo spans, in words, or why there is none. */
   bars: { label: string } | { missing: string };

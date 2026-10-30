@@ -1219,7 +1219,7 @@ export function Studio() {
                 key={`${editing.kind}-${editing.clip}`}
                 kind={editing.kind}
                 clip={editing.clip}
-                words={song.takes[editedClip.take]?.words ?? ''}
+                words={song.takes[editedClip.take]?.made === 'generated' ? (song.takes[editedClip.take]?.words ?? '') : ''}
                 bars={barsOf(song, editedClip, range)}
                 longest={longestAdd}
                 onGo={(request) => void performEdit(request)}
