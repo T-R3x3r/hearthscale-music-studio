@@ -48,7 +48,7 @@ export function Snippets({ snippets, previewing, onPreview, onRename, onDelete, 
             value={snippet.name}
             onChange={(event) => onRename(snippet, event.target.value)}
           />
-          <span className="ms-dim ms-num">{snippet.length.toFixed(1)} s</span>
+          <span className="ms-dim ms-num">{Math.round(snippet.length)} s</span>
           <TipIconButton size="sm" className="ms-row-action" aria-label={`Delete ${snippet.name}`} onClick={() => onDelete(snippet)}>
             <Icon name="delete-bin-line" size={14} />
           </TipIconButton>

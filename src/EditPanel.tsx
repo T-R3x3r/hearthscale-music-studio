@@ -53,7 +53,7 @@ export function EditPanel({ kind, clip, words: start, bars, longest, onGo, onClo
       <div className="ms-edit-head">
         <Icon name={icon} size={16} />
         <span className="ms-strong">{title}</span>
-        {kind === 'repaint' && 'label' in bars && <span className="ms-dim">{bars.label}</span>}
+        {kind === 'repaint' && <span className="ms-dim">{'label' in bars ? bars.label : 'No bars chosen'}</span>}
         <div className="hs-flex-spacer" />
         <TipIconButton size="sm" aria-label="Close" onClick={onClose}>
           <Icon name="close-line" size={14} />

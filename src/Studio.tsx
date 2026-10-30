@@ -1206,9 +1206,19 @@ export function Studio() {
             ) : (
               <div className="ms-empty">
                 <EmptyState icon={<Icon name="music-ai-line" size={30} />} title="No tracks yet">
-                  <Button variant="secondary" icon={<Icon name="upload-2-line" size={14} />} onClick={() => picker.current?.click()}>
-                    Import audio
-                  </Button>
+                  {card ? (
+                    <Button
+                      variant="secondary"
+                      icon={<Icon name="quill-pen-line" size={14} />}
+                      onClick={() => document.querySelector<HTMLTextAreaElement>('.ms-words')?.focus()}
+                    >
+                      Describe a song
+                    </Button>
+                  ) : (
+                    <Button variant="secondary" icon={<Icon name="upload-2-line" size={14} />} onClick={() => picker.current?.click()}>
+                      Import audio
+                    </Button>
+                  )}
                 </EmptyState>
               </div>
             )}

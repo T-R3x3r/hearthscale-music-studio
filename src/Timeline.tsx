@@ -46,7 +46,7 @@ export const SNIPPET_DRAG = 'application/x-music-studio-snippet';
 
 type Edit = (song: Song) => Song;
 
-const SOUND_ICONS: Record<Sound, IconName> = { warm: 'sun-line', bright: 'sparkling-line', space: 'building-line' };
+const SOUND_ICONS: Record<Sound, IconName> = { warm: 'sun-line', bright: 'contrast-2-line', space: 'expand-diagonal-line' };
 
 export interface Range {
   from: number;
@@ -359,7 +359,7 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
   }
 
   const index = clip.versions.indexOf(clip.take);
-  const takes = tips('takes', 'Takes the music model made. Keep the one you like.');
+  const takes = tips('takes', 'Other takes. Keep the one you like.');
   const loopTip = tips('loop', 'Drag to repeat the clip');
   const total = Math.max(clip.versions.length, clip.expected);
   const step = (by: number) => {
