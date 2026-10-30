@@ -20,14 +20,16 @@ export function Snippets({ snippets, previewing, onPreview, onRename, onDelete, 
   return (
     <div className="ms-snippets">
       {snippets.length === 0 && (
-        <EmptyState icon={<Icon name="bookmark-line" size={30} />} title="No snippets yet">
-          <span className="hs-tipwrap" {...save.hover}>
-            <Button variant="secondary" icon={<Icon name="bookmark-line" size={14} />} disabled={!picked} onClick={onSavePicked}>
-              Save picked clip
-            </Button>
-            {save.tip}
-          </span>
-        </EmptyState>
+        <div className="ms-empty">
+          <EmptyState icon={<Icon name="bookmark-line" size={30} />} title="No snippets yet">
+            <span className="hs-tipwrap" {...save.hover}>
+              <Button variant="secondary" icon={<Icon name="bookmark-line" size={14} />} disabled={!picked} onClick={onSavePicked}>
+                Save picked clip
+              </Button>
+              {save.tip}
+            </span>
+          </EmptyState>
+        </div>
       )}
       {snippets.map((snippet) => (
         <div
