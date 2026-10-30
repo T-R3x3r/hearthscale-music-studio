@@ -69,7 +69,7 @@ export function Versions({ compact, versions, locale, onOpen, onSave, onRestore 
           <div className="ms-popover">
             <TextInput
               aria-label="Version name"
-              placeholder="Version name"
+              placeholder="Before the new chorus"
               value={name}
               data-autofocus
               onChange={(event) => setName(event.target.value)}
