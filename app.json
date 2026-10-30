@@ -145,7 +145,7 @@
       "name": "make_music",
       "title": "Make music",
       "icon": "music",
-      "description": "Makes a new piece of music from words and puts it on the first track of the open song, after the music there.",
+      "description": "Makes a new piece of music from words and puts it on a new track of the open song, at the playhead.",
       "input": {
         "type": "object",
         "properties": {

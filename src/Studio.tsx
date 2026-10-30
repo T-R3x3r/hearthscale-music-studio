@@ -64,12 +64,11 @@ import { useMusicModels } from './models';
 import { Recorder } from './recorder';
 import { abilities, musicSchema, newSeed, songInput } from './music';
 import { Snippets } from './Snippets';
+import { sentenceCase } from './text';
 import {
-  clipSeconds,
   clipStart,
   newId,
   newSong,
-  newTrack,
   secondsPerBeat,
   songAssets,
   songSeconds,
@@ -536,12 +535,10 @@ export function Studio() {
     if (pendings.length === 0) return;
     clip.expected = pendings.length;
     await edit((s) => {
-      const first = s.tracks[0] ?? newTrack(s, 'Song');
       const bar = secondsPerBeat(s) * s.beatsPerBar;
-      const end = first.clips.reduce((at, c) => Math.max(at, c.startBeat * secondsPerBeat(s) + clipSeconds(c)), 0);
-      const placed = { ...clip, startBeat: Math.ceil(end / bar) * s.beatsPerBar };
-      const tracks = s.tracks.length === 0 ? [{ ...first, clips: [placed] }] : s.tracks.map((t, i) => (i === 0 ? { ...t, clips: [...t.clips, placed] } : t));
-      return { ...s, tracks, pending: [...s.pending, ...pendings] };
+      const startBeat = Math.floor(engine.current!.position() / bar) * s.beatsPerBar;
+      const added = addTrack(s, trackName(request));
+      return { ...placeClip(added.song, added.track, { ...clip, startBeat }), pending: [...s.pending, ...pendings] };
     });
   };
 
@@ -1363,6 +1360,12 @@ function freshTitle(rows: SongRow[]): string {
   let n = 1;
   while (taken.has(`Song ${n}`)) n++;
   return `Song ${n}`;
+}
+
+/** The name of the track a new piece goes on: the first words of its description, else its styles. */
+function trackName(request: MakeRequest): string {
+  const words = request.words.trim().split(/\s+/).filter(Boolean).slice(0, 3).join(' ').replace(/[,.;:!?]+$/, '');
+  return sentenceCase(words || request.styles.join(', '));
 }
 
 function clock(seconds: number): string {
