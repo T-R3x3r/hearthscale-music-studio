@@ -29,12 +29,12 @@ interface Props {
   onClose: () => void;
 }
 
-/** The name and the mark of each edit, in the clip's menu and on the panel. */
-export const EDITS: Record<EditKind, { title: string; icon: IconName }> = {
-  restyle: { title: 'Change style', icon: 'palette-line' },
-  repaint: { title: 'Redo bars', icon: 'brush-line' },
-  longer: { title: 'Extend', icon: 'expand-right-line' },
-  add: { title: 'Add instrument', icon: 'add-circle-line' },
+/** The name and the mark of each edit, in the clip's menu and on the panel, and the example its description field shows. */
+export const EDITS: Record<EditKind, { title: string; icon: IconName; example: string }> = {
+  restyle: { title: 'Change style', icon: 'palette-line', example: 'Slow acoustic version with brushed drums' },
+  repaint: { title: 'Redo bars', icon: 'brush-line', example: 'A quiet break with only piano' },
+  longer: { title: 'Extend', icon: 'expand-right-line', example: 'Build up to a big ending' },
+  add: { title: 'Add instrument', icon: 'add-circle-line', example: 'Soft and steady, under the melody' },
 };
 
 export function EditPanel({ kind, clip, words: start, bars, longest, onGo, onClose }: Props) {
@@ -43,7 +43,7 @@ export function EditPanel({ kind, clip, words: start, bars, longest, onGo, onClo
   const [seconds, setSeconds] = useState(Math.min(longest, 15));
   const [part, setPart] = useState(PARTS[0]!);
   const tips = useFloatingTips('top');
-  const { title, icon } = EDITS[kind];
+  const { title, icon, example } = EDITS[kind];
   const missing = kind === 'repaint' && 'missing' in bars ? bars.missing : undefined;
   const blocked = missing ?? (words.trim() ? undefined : 'Describe the music first');
   const go = tips('go', blocked);
@@ -61,7 +61,7 @@ export function EditPanel({ kind, clip, words: start, bars, longest, onGo, onClo
       <textarea
         className="ms-words hs-ta"
         aria-label="Description"
-        placeholder="Slow acoustic version with brushed drums"
+        placeholder={example}
         value={words}
         rows={2}
         onChange={(event) => setWords(event.target.value)}
