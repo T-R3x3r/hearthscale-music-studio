@@ -1,11 +1,15 @@
 import { useRef, useState } from 'react';
 import { Button, Chip, Icon, IconButton, Label, Meter, Notice, Popover, SettingsSelect, Slider, Toggle, useFloatingTips } from '@hearthscale/app-ui';
 import type { ModelCard } from '@hearthscale/app';
+import { onboarding } from '../app.json';
 import { reason } from './bridge';
 import type { MusicModels } from './models';
 import type { LyricSection } from './lyrics';
 import { LyricsEditor } from './LyricsEditor';
 import { abilities, musicSchema, type Abilities } from './music';
+
+/** The music model the introduction downloads, by the id its Server lists it under. */
+const FIRST_MODEL = onboarding.cards.find((card) => 'download' in card)?.download;
 
 const STYLES = [
   'pop', 'rock', 'hip hop', 'electronic', 'lo-fi', 'jazz', 'classical', 'folk', 'ambient', 'funk',
@@ -123,7 +127,7 @@ export function MakePanel({ models, card, onPick, onMake, lyrics, onLyrics }: Pr
           {showMore && more.current && (
             <Popover anchor={more.current} placement="top-end" label="More music models" onDismiss={() => setShowMore(false)}>
               <div className="ms-more-models">
-                <Installs models={models} />
+                <Installs models={models} cards={models.offered} />
               </div>
             </Popover>
           )}
@@ -144,37 +148,28 @@ export function MakePanel({ models, card, onPick, onMake, lyrics, onLyrics }: Pr
   );
 }
 
-/** What the panel shows with no music model: why, and the models to install. */
+/** What the panel shows with no music model: the download the introduction offers, or why none can run. */
 function NoModel({ models }: { models: MusicModels }) {
-  const tips = useFloatingTips('top');
-  const why = models.failure ?? models.chosen.reason ?? 'No music model can run on this computer.';
-  const whyTip = tips('why', why);
-  if (models.offered.length === 0) {
+  const first = models.offered.find((card) => card.id.endsWith(`/${FIRST_MODEL}`));
+  if (!first) {
     return (
       <div className="ms-make">
         <div>
-          <Notice>{why}</Notice>
+          <Notice>{models.failure ?? models.chosen.reason ?? 'No music model can run on this computer.'}</Notice>
         </div>
       </div>
     );
   }
   return (
-    <div className="ms-make ms-nomodel">
-      <div className="ms-nomodel-head">
-        <Icon name="music-ai-line" size={18} />
-        <span className="ms-strong">Get a music model</span>
-        <span className="hs-tipwrap ms-why" {...whyTip.hover}>
-          <Icon name="question-line" size={14} />
-          {whyTip.tip}
-        </span>
-      </div>
-      <Installs models={models} />
+    <div className="ms-make">
+      <span className="ms-strong">Music studio needs a music model.</span>
+      <Installs models={models} cards={[first]} />
     </div>
   );
 }
 
-/** The music models a Server offers, each with Install or its download. */
-function Installs({ models }: { models: MusicModels }) {
+/** Music models a Server offers, each with Download or its download under way. */
+function Installs({ models, cards }: { models: MusicModels; cards: ModelCard[] }) {
   const [failure, setFailure] = useState<string | null>(null);
   const install = async (card: string) => {
     try {
@@ -188,22 +183,25 @@ function Installs({ models }: { models: MusicModels }) {
     <>
       {failure && <Notice>{failure}</Notice>}
       <div className="ms-installs">
-        {models.offered.map((card) => {
+        {cards.map((card) => {
           const download = models.downloads[card.id];
           const share = download?.progress ? download.progress.receivedBytes / Math.max(1, download.progress.totalBytes) : null;
           return (
-            <div key={card.id} className="ms-install">
-              <span className="ms-install-name">{card.label}</span>
-              {card.sizeBytes !== undefined && <span className="ms-dim">{gigabytes(card.sizeBytes)}</span>}
-              {download?.state === 'downloading' ? (
-                <div className="ms-install-meter">
-                  <Meter value={share ?? 0} label={`Downloading ${card.label}`} />
-                </div>
-              ) : (
-                <Button size="sm" variant="secondary" icon={<Icon name="download-2-line" size={14} />} onClick={() => void install(card.id)}>
-                  Install
-                </Button>
-              )}
+            <div key={card.id} className="ms-installs">
+              {download?.state !== 'downloading' && download?.reason && <Notice>{download.reason}</Notice>}
+              <div className="ms-install">
+                <span className="ms-install-name">{card.label}</span>
+                {card.sizeBytes !== undefined && <span className="ms-dim">{gigabytes(card.sizeBytes)}</span>}
+                {download?.state === 'downloading' ? (
+                  <div className="ms-install-meter">
+                    <Meter value={share ?? 0} label={`Downloading ${card.label}`} />
+                  </div>
+                ) : (
+                  <Button size="sm" variant="secondary" icon={<Icon name="download-2-line" size={14} />} onClick={() => void install(card.id)}>
+                    {download?.reason ? 'Try again' : 'Download'}
+                  </Button>
+                )}
+              </div>
             </div>
           );
         })}

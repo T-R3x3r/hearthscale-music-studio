@@ -646,16 +646,6 @@ body {
   cursor: pointer;
 }
 
-.ms-nomodel-head {
-  display: flex;
-  align-items: center;
-  gap: var(--gap-inline);
-}
-
-.ms-why {
-  color: var(--dim);
-}
-
 .ms-installs {
   display: flex;
   flex-direction: column;
