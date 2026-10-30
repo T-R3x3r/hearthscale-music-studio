@@ -1194,7 +1194,11 @@ export function Studio() {
               />
             ) : (
               <div className="ms-empty">
-                <EmptyState icon={<Icon name="music-ai-line" size={30} />} title="Describe a song to make it" />
+                <EmptyState icon={<Icon name="music-ai-line" size={30} />} title="No tracks yet">
+                  <Button variant="secondary" icon={<Icon name="upload-2-line" size={14} />} onClick={() => picker.current?.click()}>
+                    Import audio
+                  </Button>
+                </EmptyState>
               </div>
             )}
             {editing && editedClip ? (
@@ -1276,7 +1280,7 @@ export function Studio() {
       {deleting && (
         <ShellConfirm
           title={`Delete ${deleting.title}?`}
-          body="Its audio is deleted too."
+          body="The song and its audio are deleted. You cannot undo this."
           action="Delete"
           tone="danger"
           onConfirm={() => void removeSong(deleting)}
