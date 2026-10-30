@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { Button, Chip, Icon, IconButton, Label, Meter, Notice, Popover, SettingsSelect, Slider, Toggle, useFloatingTips } from '@hearthscale/app-ui';
+import { useState } from 'react';
+import { Button, Chip, Icon, Label, Meter, ModelAvatar, Notice, Slider, Toggle, useFloatingTips } from '@hearthscale/app-ui';
 import type { ModelCard } from '@hearthscale/app';
 import { onboarding } from '../app.json';
 import { reason } from './bridge';
@@ -7,6 +7,7 @@ import { sentenceCase } from './text';
 import type { MusicModels } from './models';
 import type { LyricSection } from './lyrics';
 import { LyricsEditor } from './LyricsEditor';
+import { useSlot } from './slots';
 import { abilities, musicSchema, type Abilities } from './music';
 
 /** The music model the introduction downloads, by the id its Server lists it under. */
@@ -19,7 +20,6 @@ const STYLES = [
 ];
 
 export interface MakeRequest {
-  card: ModelCard;
   words: string;
   styles: string[];
   seconds: number | null;
@@ -28,22 +28,20 @@ export interface MakeRequest {
 
 interface Props {
   models: MusicModels;
-  /** The music model requests run on. */
-  card: ModelCard | null;
-  onPick: (card: string) => void;
+  /** Whether a dock floats over the panel, where the shell would draw the model picker over it. */
+  covered: boolean;
   onMake: (request: MakeRequest) => void;
   lyrics: LyricSection[];
   onLyrics: (sections: LyricSection[]) => void;
 }
 
-export function MakePanel({ models, card, onPick, onMake, lyrics, onLyrics }: Props) {
+export function MakePanel({ models, covered, onMake, lyrics, onLyrics }: Props) {
+  const { card } = models;
   const [words, setWords] = useState('');
   const [styles, setStyles] = useState<string[]>([]);
   const [instrumental, setInstrumental] = useState(false);
   const [seconds, setSeconds] = useState<number | null>(null);
-  const [showMore, setShowMore] = useState(false);
   const [writing, setWriting] = useState(false);
-  const more = useRef<HTMLSpanElement>(null);
   const tips = useFloatingTips('top');
 
   const schema = card ? musicSchema(card) : null;
@@ -80,6 +78,7 @@ export function MakePanel({ models, card, onPick, onMake, lyrics, onLyrics }: Pr
         ))}
       </div>
       <div className="ms-make-row">
+        {!covered && <MusicModelSlot />}
         {length !== null && can?.length && (
           <div className="ms-length">
             <Label>Length</Label>
@@ -111,33 +110,12 @@ export function MakePanel({ models, card, onPick, onMake, lyrics, onLyrics }: Pr
           </Button>
         )}
         <div className="ms-go">
-          <SettingsSelect
-            label="Music model"
-            value={card.id}
-            options={models.ready.map((c) => ({ value: c.id, label: c.label }))}
-            onPick={onPick}
-            minWidth={200}
-          />
-          {models.offered.length > 0 && (
-            <span ref={more}>
-              <IconButton aria-label="Add a music model" onClick={() => setShowMore(true)}>
-                <Icon name="add-circle-line" size={16} />
-              </IconButton>
-            </span>
-          )}
-          {showMore && more.current && (
-            <Popover anchor={more.current} placement="top-end" label="Add a music model" onDismiss={() => setShowMore(false)}>
-              <div className="ms-more-models">
-                <Installs models={models} cards={models.offered} />
-              </div>
-            </Popover>
-          )}
           <span className="hs-tipwrap" {...make.hover}>
             <Button
               variant="primary"
               icon={<Icon name="music-ai-line" size={14} />}
               disabled={!ready}
-              onClick={() => onMake({ card, words, styles, seconds: length, instrumental })}
+              onClick={() => onMake({ words, styles, seconds: length, instrumental })}
             >
               Make
             </Button>
@@ -149,6 +127,12 @@ export function MakePanel({ models, card, onPick, onMake, lyrics, onLyrics }: Pr
   );
 }
 
+/** The place where Hearthscale draws its picker of the app's music model. */
+function MusicModelSlot() {
+  const [place] = useSlot<HTMLSpanElement>('music-model', (insets) => ({ id: 'music-model', kind: 'model', model: 'music', insets }));
+  return <span ref={place} className="ms-model-slot" />;
+}
+
 /** What the panel shows with no music model: the download the introduction offers, or why none can run. */
 function NoModel({ models }: { models: MusicModels }) {
   const first = models.offered.find((card) => card.id.endsWith(`/${FIRST_MODEL}`));
@@ -156,7 +140,7 @@ function NoModel({ models }: { models: MusicModels }) {
     return (
       <div className="ms-make">
         <div>
-          <Notice>{models.failure ?? models.chosen.reason ?? 'No music model can run on this computer.'}</Notice>
+          <Notice>{models.why ?? 'No music model can run on this computer.'}</Notice>
         </div>
       </div>
     );
@@ -164,48 +148,41 @@ function NoModel({ models }: { models: MusicModels }) {
   return (
     <div className="ms-make">
       <span className="ms-strong">Music studio needs a music model.</span>
-      <Installs models={models} cards={[first]} />
+      <Download models={models} card={first} />
     </div>
   );
 }
 
-/** Music models a Server offers, each with Download or its download under way. */
-function Installs({ models, cards }: { models: MusicModels; cards: ModelCard[] }) {
+/** A music model a Server offers, with Download or its download under way. */
+function Download({ models, card }: { models: MusicModels; card: ModelCard }) {
   const [failure, setFailure] = useState<string | null>(null);
-  const install = async (card: string) => {
+  const download = models.downloads[card.id];
+  const share = download?.progress ? download.progress.receivedBytes / Math.max(1, download.progress.totalBytes) : null;
+  const install = async () => {
     try {
       setFailure(null);
-      await models.install(card);
+      await models.install(card.id);
     } catch (error) {
       setFailure(reason(error));
     }
   };
+  const stopped = failure ?? (download?.state !== 'downloading' ? download?.reason : undefined);
   return (
     <>
-      {failure && <Notice>{failure}</Notice>}
-      <div className="ms-installs">
-        {cards.map((card) => {
-          const download = models.downloads[card.id];
-          const share = download?.progress ? download.progress.receivedBytes / Math.max(1, download.progress.totalBytes) : null;
-          return (
-            <div key={card.id} className="ms-installs">
-              {download?.state !== 'downloading' && download?.reason && <Notice>{download.reason}</Notice>}
-              <div className="ms-install">
-                <span className="ms-install-name">{card.label}</span>
-                {card.sizeBytes !== undefined && <span className="ms-dim">{gigabytes(card.sizeBytes)}</span>}
-                {download?.state === 'downloading' ? (
-                  <div className="ms-install-meter">
-                    <Meter value={share ?? 0} label={`Downloading ${card.label}`} />
-                  </div>
-                ) : (
-                  <Button size="sm" variant="secondary" icon={<Icon name="download-2-line" size={14} />} onClick={() => void install(card.id)}>
-                    {download?.reason ? 'Try again' : 'Download'}
-                  </Button>
-                )}
-              </div>
-            </div>
-          );
-        })}
+      {stopped && <Notice>{stopped}</Notice>}
+      <div className="ms-install">
+        {card.identity && <ModelAvatar identity={card.identity} server={card.provider} />}
+        <span className="ms-install-name">{card.label}</span>
+        {card.sizeBytes !== undefined && <span className="ms-dim">{gigabytes(card.sizeBytes)}</span>}
+        {download?.state === 'downloading' ? (
+          <div className="ms-install-meter">
+            <Meter value={share ?? 0} label={`Downloading ${card.label}`} />
+          </div>
+        ) : (
+          <Button size="sm" variant="secondary" icon={<Icon name="download-2-line" size={14} />} onClick={() => void install()}>
+            {stopped ? 'Try again' : 'Download'}
+          </Button>
+        )}
       </div>
     </>
   );

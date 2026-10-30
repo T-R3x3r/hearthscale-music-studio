@@ -1,36 +1,30 @@
 /**
- * The music models the person can run, the one the app runs when the
- * person picks none, the ones a Server offers to install, and the
- * downloads under way.
+ * The music model the app runs, the one chosen for it in the model slot or
+ * on its settings page, and the music models a Server offers to download,
+ * with the downloads under way.
  */
 import { useCallback, useEffect, useState } from 'react';
 import type { ModelCard, ModelDownload } from '@hearthscale/app';
 import { call, onNote, reason } from './bridge';
 
 export interface MusicModels {
-  ready: ModelCard[];
-  /** The card the app runs music on, or null with the reason. */
-  chosen: { card: string | null; reason?: string };
-  /** The models a Server offers to install, and the ones on their way. */
+  /** The music model the app runs, or null with `why`. */
+  card: ModelCard | null;
+  why: string | null;
+  /** The music models a Server offers to download, and the ones on their way. */
   offered: ModelCard[];
   downloads: Record<string, ModelDownload>;
-  /** Why the list could not be read. */
-  failure: string | null;
-  /** Asks the person to install a model; on a click only. */
+  /** Lists the models again and answers the app's music model, as a pick in the slot may have changed it. */
+  refresh: () => Promise<ModelCard | null>;
+  /** Asks the person to download a model; on a click only. */
   install: (card: string) => Promise<void>;
 }
 
-/** The music model a request runs on: the one the person picked here, else the app's, else the first ready one. */
-export function musicCard(models: MusicModels, picked: string | null): ModelCard | null {
-  return models.ready.find((c) => c.id === (picked ?? models.chosen.card)) ?? models.ready[0] ?? null;
-}
-
 export function useMusicModels(): MusicModels {
-  const [ready, setReady] = useState<ModelCard[]>([]);
-  const [chosen, setChosen] = useState<{ card: string | null; reason?: string }>({ card: null });
+  const [card, setCard] = useState<ModelCard | null>(null);
+  const [why, setWhy] = useState<string | null>(null);
   const [offered, setOffered] = useState<ModelCard[]>([]);
   const [downloads, setDownloads] = useState<Record<string, ModelDownload>>({});
-  const [failure, setFailure] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -39,43 +33,52 @@ export function useMusicModels(): MusicModels {
         call('hearthscale/models/list', { kind: 'music', state: 'absent' }),
         call('hearthscale/models/list', { kind: 'music', state: 'downloading' }),
       ]);
-      setReady(now.cards.filter((card) => card.state === 'ready'));
       const pick = now.chosen.music;
-      setChosen(pick ? (pick.card === null ? { card: null, reason: pick.reason } : { card: pick.card }) : { card: null });
+      const chosen = pick && 'source' in pick ? (now.cards.find((c) => c.id === pick.card && c.state === 'ready') ?? null) : null;
+      setCard(chosen);
+      setWhy(chosen ? null : pick && 'reason' in pick ? pick.reason : 'No music model is chosen for Music studio.');
       setOffered([...coming.cards, ...missing.cards]);
       setDownloads((before) => {
         const next = { ...before };
-        for (const card of coming.cards) {
-          next[card.id] = { card: card.id, state: 'downloading', progress: card.progress };
-        }
+        for (const item of coming.cards) next[item.id] = { card: item.id, state: 'downloading', progress: item.progress };
         return next;
       });
-      setFailure(null);
+      return chosen;
     } catch (error) {
-      setFailure(reason(error));
+      setCard(null);
+      setWhy(reason(error));
+      return null;
     }
   }, []);
 
   useEffect(() => {
     void refresh();
-    return onNote((note) => {
+    const again = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
+    document.addEventListener('visibilitychange', again);
+    window.addEventListener('focus', again);
+    const stop = onNote((note) => {
       if (note.method !== 'hearthscale/models/download') return;
       const { download } = note.params;
       setDownloads((before) => ({ ...before, [download.card]: download }));
       if (download.state !== 'downloading') void refresh();
     });
+    return () => {
+      document.removeEventListener('visibilitychange', again);
+      window.removeEventListener('focus', again);
+      stop();
+    };
   }, [refresh]);
 
   const install = useCallback(
-    async (card: string) => {
-      const { card: installing } = await call('hearthscale/models/install', { target: card });
-      if (installing) {
-        setDownloads((before) => ({ ...before, [installing]: { card: installing, state: 'downloading' } }));
-      }
+    async (target: string) => {
+      const { card: installing } = await call('hearthscale/models/install', { target });
+      if (installing) setDownloads((before) => ({ ...before, [installing]: { card: installing, state: 'downloading' } }));
       await refresh();
     },
     [refresh],
   );
 
-  return { ready, chosen, offered, downloads, failure, install };
+  return { card, why, offered, downloads, refresh, install };
 }

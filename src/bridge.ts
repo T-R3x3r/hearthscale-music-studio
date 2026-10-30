@@ -1,14 +1,13 @@
 /**
- * The view's link to Hearthscale: the MCP Apps `App`, the typed call of the
- * `hearthscale/*` extensions, the host's notifications, and the addresses
- * the host context gives.
+ * The view's link to Hearthscale: the MCP Apps `App`, the typed call of every
+ * host method, the host's notifications, and the addresses the host context
+ * gives.
  */
 import { App, McpUiMessageResultSchema, PostMessageTransport } from '@modelcontextprotocol/ext-apps';
-import { extensionCall } from '@hearthscale/app/view';
+import { hostCall } from '@hearthscale/app/view';
 import { sentenceCase } from './text';
 import type {
   CompletionRequest,
-  HostSlot,
   HostSlotNotification,
   SettingValues,
   ViewExtensionNotification,
@@ -16,7 +15,12 @@ import type {
 } from '@hearthscale/app';
 
 export const app = new App({ name: 'Music studio', version: '0.1.0' }, {}, { autoResize: false });
-export const call = extensionCall(app);
+export const call = hostCall(app);
+
+/** Sends a standard MCP Apps request with the fields Hearthscale adds, which the library's own methods do not take. */
+function standard(method: 'ui/update-model-context' | 'ui/download-file', params: Record<string, unknown>): Promise<{ isError?: boolean }> {
+  return app.request({ method, params } as never, McpUiMessageResultSchema) as Promise<{ isError?: boolean }>;
+}
 
 type Note = ViewExtensionNotification | HostSlotNotification;
 type Listener = (note: Note) => void;
@@ -88,6 +92,13 @@ export function assetsUrl(): string {
   return base.url;
 }
 
+/** The address of the picture of a model's publisher on a Server; none for a model of no Server. */
+export function publisherPicture(server: string | undefined, owner: string): string | undefined {
+  const base = context()['hearthscale/publishers'];
+  if (!base) throw new Error('Music studio could not reach the pictures of its models. Open it again.');
+  return server ? `${base.url}${server}/${owner}` : undefined;
+}
+
 export function settings(): SettingValues {
   return context()['hearthscale/settings'] ?? {};
 }
@@ -101,26 +112,15 @@ let kept: Record<string, unknown> | null = null;
 /** Keeps values the host gives back in the widget state when it loads the view again, beside the ones kept before. */
 export async function keepWidgetState(values: Record<string, unknown>): Promise<void> {
   kept = { ...(kept ?? ((widgetState() as Record<string, unknown> | null) ?? {})), ...values };
-  await app.request({ method: 'hearthscale/ui/set-widget-state', params: { state: kept } } as never, McpUiMessageResultSchema);
-}
-
-/** Reserves the shell's slots, such as the chat, at their places in the view; an empty list removes them. */
-export async function placeSlots(slots: HostSlot[]): Promise<void> {
-  await app.request({ method: 'hearthscale/ui/slots', params: { slots } } as never, McpUiMessageResultSchema);
+  await call('hearthscale/ui/set-widget-state', { state: kept });
 }
 
 /** Puts text into a chip above the chat slot `slot`, which the next message there carries. */
 export async function chatContext(slot: string, title: string, text: string): Promise<void> {
-  await app.request(
-    {
-      method: 'ui/update-model-context',
-      params: {
-        content: [{ type: 'text', text, _meta: { 'openai/title': title } }],
-        _meta: { 'hearthscale/modelContext': { slot } },
-      },
-    } as never,
-    McpUiMessageResultSchema,
-  );
+  await standard('ui/update-model-context', {
+    content: [{ type: 'text', text, _meta: { 'openai/title': title } }],
+    _meta: { 'hearthscale/modelContext': { slot } },
+  });
 }
 
 export async function connect(): Promise<void> {
@@ -138,22 +138,15 @@ export async function tool(name: string, args: Record<string, unknown>, label: s
 
 /** Saves a file where the person picks in the system's dialog. False when they cancel. */
 export async function saveFile(name: string, mimeType: string, blob: Blob): Promise<boolean> {
-  const answer = (await app.request(
-    {
-      method: 'ui/download-file',
-      params: { contents: [{ type: 'resource', resource: { uri: `file:///${name}`, mimeType, blob } }] },
-    } as never,
-    McpUiMessageResultSchema,
-  )) as { isError?: boolean };
+  const answer = await standard('ui/download-file', {
+    contents: [{ type: 'resource', resource: { uri: `file:///${name}`, mimeType, blob } }],
+  });
   return !answer.isError;
 }
 
 /** Stores a file's bytes as an asset of the app, streamed; answers the asset's id. */
 export async function upload(name: string, mediaType: string, blob: Blob): Promise<string> {
-  const answer = (await app.request(
-    { method: 'hearthscale/ui/upload-file', params: { name, mediaType, blob } } as never,
-    McpUiMessageResultSchema,
-  )) as { asset?: string };
+  const answer = await call('hearthscale/ui/upload-file', { name, mediaType, blob });
   if (!answer.asset) throw new Error(`Music studio could not save ${name}. Try again.`);
   return answer.asset;
 }

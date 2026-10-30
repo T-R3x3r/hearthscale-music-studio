@@ -9,7 +9,7 @@ let ctx: AppContext;
  */
 function studio(tool: string, done: string): ToolBody {
   return async (input) => {
-    await ctx.events!.emit!({ name: 'studio', data: { tool, input }, durable: false });
+    await ctx.events.emit({ name: 'studio', data: { tool, input }, durable: false });
     return done;
   };
 }

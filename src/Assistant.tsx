@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { chatContext, keepWidgetState, onNote, placeSlots, widgetState } from './bridge';
+import { useEffect, useState } from 'react';
+import { chatContext, keepWidgetState, onNote, widgetState } from './bridge';
+import { useSlot } from './slots';
 
 const SLOT = 'chat';
 
@@ -15,35 +16,11 @@ interface Props {
 
 /** The space the shell's chat with the app's assistant takes in the view. */
 export function Assistant({ title, context }: Props) {
-  const room = useRef<HTMLDivElement>(null);
   const [session, setSession] = useState<string | null>(() => {
     const kept = (widgetState() as { chat?: string } | null)?.chat;
     return typeof kept === 'string' ? kept : null;
   });
-  const [placed, setPlaced] = useState(false);
-
-  useEffect(() => {
-    const element = room.current;
-    if (!element) return;
-    const place = () => {
-      const box = element.getBoundingClientRect();
-      void placeSlots([
-        {
-          id: SLOT,
-          kind: 'chat',
-          session,
-          insets: { left: box.left, top: box.top, right: window.innerWidth - box.right, bottom: window.innerHeight - box.bottom },
-        },
-      ]).then(() => setPlaced(true));
-    };
-    place();
-    const observer = new ResizeObserver(place);
-    observer.observe(element);
-    return () => {
-      observer.disconnect();
-      void placeSlots([]);
-    };
-  }, [session]);
+  const [room, placed] = useSlot<HTMLDivElement>(SLOT, (insets) => ({ id: SLOT, kind: 'chat', session, insets }));
 
   useEffect(
     () =>

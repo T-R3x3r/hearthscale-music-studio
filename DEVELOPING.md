@@ -55,6 +55,14 @@ Close and open the app's tab again after `npm run build` to load the view.
   when playback starts, so tracks never drift. The export renders the same
   graph in an `OfflineAudioContext` and saves a 16-bit WAV with
   `ui/download-file`.
+- **The music model** is the app's model of the `music` kind. The Make
+  panel holds a model slot where Hearthscale draws its own picker
+  (`src/slots.ts`, `src/models.ts`); a pick there sets the app's model, so
+  the view lists the models again on focus, after a download and before
+  each job. Without a music model, the panel offers the download the
+  introduction offers, read from `app.json`. Every slot of the view goes
+  through one list, as each `hearthscale/ui/slots` call replaces the whole
+  list.
 - **Music jobs** run from the view (`hearthscale/jobs/*`). The app reads
   each music model's input schema from its card (`src/music.ts`) and sends
   only the fields that schema lists. Each take is one job with its own
