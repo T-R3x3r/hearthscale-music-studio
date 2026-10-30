@@ -346,6 +346,7 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
   }
 
   const index = clip.versions.indexOf(clip.take);
+  const takes = tips('takes', 'Takes the music model made. Keep the one you like.');
   const total = Math.max(clip.versions.length, clip.expected);
   const step = (by: number) => {
     const next = clip.versions[(index + by + clip.versions.length) % clip.versions.length];
@@ -397,13 +398,14 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
         )}
         {clip.versions.length > 0 && (
           <span className="ms-versions" onPointerDown={(event) => event.stopPropagation()}>
-            <IconButton size="sm" aria-label="Previous version" onClick={() => step(-1)}>
+            <IconButton size="sm" aria-label="Previous take" onClick={() => step(-1)}>
               <Icon name="arrow-left-s-line" size={14} />
             </IconButton>
-            <span className="ms-num">
+            <span className="hs-tipwrap ms-num" {...takes.hover}>
               {index + 1} / {total}
+              {takes.tip}
             </span>
-            <IconButton size="sm" aria-label="Next version" onClick={() => step(1)}>
+            <IconButton size="sm" aria-label="Next take" onClick={() => step(1)}>
               <Icon name="arrow-right-s-line" size={14} />
             </IconButton>
             {waiting.length === 0 && (
