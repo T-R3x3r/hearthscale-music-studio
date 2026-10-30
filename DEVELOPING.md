@@ -32,7 +32,8 @@ With a development Hearthscale running:
 hearthscale dev .
 ```
 
-Close and open the app's tab again after `npm run build` to load the view.
+`npm run build` writes a new view; `hearthscale dev` links it, and each
+open view of the app loads again in its place.
 
 ## How it works
 
@@ -110,9 +111,6 @@ Close and open the app's tab again after `npm run build` to load the view.
   which only the app's views call.
 - **Settings**: `versions`, Takes to choose from: how many takes each new
   piece or change comes as (1 to 4).
-
-After every rebuild that `hearthscale dev` makes, an open view's requests
-fail with "this window hosts no such view" until its tab loads again.
 
 ## Licence
 
