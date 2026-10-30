@@ -5,7 +5,7 @@
  * a version the person did not keep stays in its history.
  */
 
-export type Made = 'generated' | 'recorded' | 'imported';
+export type Made = 'generated' | 'recorded' | 'imported' | 'split';
 
 export interface Take {
   /** The platform asset that holds the audio, a WAV file. */
@@ -17,15 +17,24 @@ export interface Take {
   seed?: number;
   /** The card id of the model that made it. */
   model?: string;
+  /** The stretch of the asset the take stands for, where it is not the whole: a clip's own before an edit. */
+  start?: number;
+  span?: number;
 }
 
-/** A job under way, the clip whose versions it fills, and what it was asked. */
+/**
+ * A job under way and what it was asked. A music job fills the versions of
+ * `clip`; a split takes `clip` apart into parts on tracks of their own.
+ */
 export interface Pending {
   job: string;
   clip: string;
   words: string;
   seed?: number;
   model?: string;
+  split?: boolean;
+  /** The job changes the clip's audio: its result plays at once, beside the clip's own as a version. */
+  edit?: boolean;
 }
 
 /** What a clip asked a music model for, so it can ask again. */
@@ -146,6 +155,13 @@ export function withClip(song: Song, id: string, change: (clip: Clip) => Clip): 
       clips: track.clips.map((clip) => (clip.id === id ? change(clip) : clip)),
     })),
   };
+}
+
+/** A copy of the song whose clip plays `take`, over the stretch the take stands for. */
+export function withVersion(song: Song, clip: string, take: string): Song {
+  const chosen = song.takes[take];
+  if (!chosen) return song;
+  return withClip(song, clip, (c) => ({ ...c, take, offset: chosen.start ?? 0, length: chosen.span ?? chosen.seconds }));
 }
 
 /** The assets of every take the song holds. */

@@ -11,7 +11,7 @@
   "payment": "free",
   "environment": { "kind": "process" },
   "uses": ["db", "jobs", "models"],
-  "models": { "music": { "required": false } },
+  "models": { "music": { "required": false }, "separation": { "required": false } },
   "settings": {
     "schema": {
       "type": "object",

@@ -213,6 +213,20 @@ export class Engine {
   }
 }
 
+/**
+ * A stretch of one asset as stereo audio at `rate`, such as the 44.1 kHz a
+ * stem split reads, with `pad` seconds of silence after it.
+ */
+export async function excerpt(engine: Engine, asset: string, offset: number, length: number, rate: number, pad = 0): Promise<AudioBuffer> {
+  const buffer = await engine.buffer(asset);
+  const offline = new OfflineAudioContext(2, Math.max(1, Math.ceil((length + pad) * rate)), rate);
+  const source = offline.createBufferSource();
+  source.buffer = buffer;
+  source.connect(offline.destination);
+  source.start(0, offset, length);
+  return offline.startRendering();
+}
+
 /** The loudest sample of each stretch of 1 / PEAKS_PER_SECOND seconds, over all channels. */
 export function peaks(buffer: AudioBuffer): Float32Array {
   const size = Math.max(1, Math.round(buffer.sampleRate / PEAKS_PER_SECOND));

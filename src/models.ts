@@ -11,7 +11,8 @@ export interface MusicModels {
   ready: ModelCard[];
   /** The card the app runs music on, or null with the reason. */
   chosen: { card: string | null; reason?: string };
-  absent: ModelCard[];
+  /** The models a Server offers to install, and the ones on their way. */
+  offered: ModelCard[];
   downloads: Record<string, ModelDownload>;
   /** Why the list could not be read. */
   failure: string | null;
@@ -19,10 +20,15 @@ export interface MusicModels {
   install: (card: string) => Promise<void>;
 }
 
+/** The music model a request runs on: the one the person picked here, else the app's, else the first ready one. */
+export function musicCard(models: MusicModels, picked: string | null): ModelCard | null {
+  return models.ready.find((c) => c.id === (picked ?? models.chosen.card)) ?? models.ready[0] ?? null;
+}
+
 export function useMusicModels(): MusicModels {
   const [ready, setReady] = useState<ModelCard[]>([]);
   const [chosen, setChosen] = useState<{ card: string | null; reason?: string }>({ card: null });
-  const [absent, setAbsent] = useState<ModelCard[]>([]);
+  const [offered, setOffered] = useState<ModelCard[]>([]);
   const [downloads, setDownloads] = useState<Record<string, ModelDownload>>({});
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -36,7 +42,7 @@ export function useMusicModels(): MusicModels {
       setReady(now.cards.filter((card) => card.state === 'ready'));
       const pick = now.chosen.music;
       setChosen(pick ? (pick.card === null ? { card: null, reason: pick.reason } : { card: pick.card }) : { card: null });
-      setAbsent(missing.cards);
+      setOffered([...coming.cards, ...missing.cards]);
       setDownloads((before) => {
         const next = { ...before };
         for (const card of coming.cards) {
@@ -71,5 +77,5 @@ export function useMusicModels(): MusicModels {
     [refresh],
   );
 
-  return { ready, chosen, absent, downloads, failure, install };
+  return { ready, chosen, offered, downloads, failure, install };
 }

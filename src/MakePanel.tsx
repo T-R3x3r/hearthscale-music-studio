@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Button, Chip, Icon, Meter, SettingsSelect, Slider, Toggle, useFloatingTips } from '@hearthscale/app-ui';
+import { useRef, useState } from 'react';
+import { Button, Chip, Icon, IconButton, Meter, Popover, SettingsSelect, Slider, Toggle, useFloatingTips } from '@hearthscale/app-ui';
 import type { ModelCard } from '@hearthscale/app';
 import { reason } from './bridge';
 import type { MusicModels } from './models';
@@ -21,20 +21,21 @@ export interface MakeRequest {
 
 interface Props {
   models: MusicModels;
-  /** The card the person picked, or null for the app's choice. */
-  picked: string | null;
+  /** The music model requests run on. */
+  card: ModelCard | null;
   onPick: (card: string) => void;
   onMake: (request: MakeRequest) => void;
 }
 
-export function MakePanel({ models, picked, onPick, onMake }: Props) {
+export function MakePanel({ models, card, onPick, onMake }: Props) {
   const [words, setWords] = useState('');
   const [styles, setStyles] = useState<string[]>([]);
   const [instrumental, setInstrumental] = useState(false);
   const [seconds, setSeconds] = useState<number | null>(null);
+  const [showMore, setShowMore] = useState(false);
+  const more = useRef<HTMLSpanElement>(null);
   const tips = useFloatingTips('top');
 
-  const card = models.ready.find((c) => c.id === (picked ?? models.chosen.card)) ?? models.ready[0] ?? null;
   const schema = card ? musicSchema(card) : null;
   const can: Abilities | null = schema ? abilities(schema) : null;
   const length = can?.length ? Math.min(can.length.max, Math.max(can.length.min, seconds ?? can.length.start)) : null;
@@ -93,6 +94,20 @@ export function MakePanel({ models, picked, onPick, onMake }: Props) {
           onPick={onPick}
           minWidth={200}
         />
+        {models.offered.length > 0 && (
+          <span ref={more}>
+            <IconButton aria-label="More music models" onClick={() => setShowMore(true)}>
+              <Icon name="add-circle-line" size={16} />
+            </IconButton>
+          </span>
+        )}
+        {showMore && more.current && (
+          <Popover anchor={more.current} placement="top-end" label="More music models" onDismiss={() => setShowMore(false)}>
+            <div className="ms-more-models">
+              <Installs models={models} />
+            </div>
+          </Popover>
+        )}
         <span className="hs-tipwrap" {...make.hover}>
           <Button
             variant="primary"
@@ -111,18 +126,9 @@ export function MakePanel({ models, picked, onPick, onMake }: Props) {
 
 /** What the panel shows with no music model: why, and the models to install. */
 function NoModel({ models }: { models: MusicModels }) {
-  const [failure, setFailure] = useState<string | null>(null);
   const tips = useFloatingTips('top');
   const why = models.failure ?? models.chosen.reason ?? 'No music model can run on this computer.';
   const whyTip = tips('why', why);
-  const install = async (card: string) => {
-    try {
-      setFailure(null);
-      await models.install(card);
-    } catch (error) {
-      setFailure(reason(error));
-    }
-  };
   return (
     <div className="ms-make ms-nomodel">
       <div className="ms-nomodel-head">
@@ -133,9 +139,27 @@ function NoModel({ models }: { models: MusicModels }) {
           {whyTip.tip}
         </span>
       </div>
+      <Installs models={models} />
+    </div>
+  );
+}
+
+/** The music models a Server offers, each with Install or its download. */
+function Installs({ models }: { models: MusicModels }) {
+  const [failure, setFailure] = useState<string | null>(null);
+  const install = async (card: string) => {
+    try {
+      setFailure(null);
+      await models.install(card);
+    } catch (error) {
+      setFailure(reason(error));
+    }
+  };
+  return (
+    <>
       {failure && <div className="ms-failure">{failure}</div>}
       <div className="ms-installs">
-        {models.absent.map((card) => {
+        {models.offered.map((card) => {
           const download = models.downloads[card.id];
           const share = download?.progress ? download.progress.receivedBytes / Math.max(1, download.progress.totalBytes) : null;
           return (
@@ -155,7 +179,7 @@ function NoModel({ models }: { models: MusicModels }) {
           );
         })}
       </div>
-    </div>
+    </>
   );
 }
 

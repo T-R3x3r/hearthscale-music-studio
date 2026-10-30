@@ -28,7 +28,9 @@ import {
   trimEnd,
   trimStart,
 } from './edit';
-import { clipSeconds, clipStart, newId, secondsPerBeat, songSeconds, withClip, type Clip, type Song, type Track } from './song';
+import type { Edits } from './edits';
+import type { EditKind } from './EditPanel';
+import { clipSeconds, clipStart, newId, secondsPerBeat, songSeconds, withVersion, type Clip, type Song, type Track } from './song';
 
 /** Seconds the timeline runs past the song's end. */
 const TAIL = 30;
@@ -40,6 +42,11 @@ const DRAG_START = 3;
 export const SNIPPET_DRAG = 'application/x-music-studio-snippet';
 
 type Edit = (song: Song) => Song;
+
+export interface Range {
+  from: number;
+  to: number;
+}
 
 interface Props {
   song: Song;
@@ -54,7 +61,14 @@ interface Props {
   onKeep: (clip: string) => void;
   onRetry: (clip: string) => void;
   onSnippet: (clip: string) => void;
+  onSplit: (clip: string) => void;
   onDropSnippet: (snippet: string, track: string | null, beat: number) => void;
+  /** The bars the person chose on the ruler, in seconds of the song. */
+  range: Range | null;
+  onRange: (range: Range | null) => void;
+  /** The edits the chosen music model makes. */
+  edits: Edits;
+  onEditStart: (kind: EditKind, clip: string) => void;
 }
 
 type Grip = 'move' | 'start' | 'end' | 'loop';
@@ -67,7 +81,8 @@ interface Drag {
 }
 
 export function Timeline(props: Props) {
-  const { song, position, pixelsPerSecond: pps, selected, onSelect, onSeek, onEdit, onDropSnippet } = props;
+  const { song, position, pixelsPerSecond: pps, selected, onSelect, onSeek, onEdit, onDropSnippet, range, onRange } = props;
+  const [sweep, setSweep] = useState<{ from: number; to: number; x: number } | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const [draft, setDraft] = useState<{ edit: Edit; song: Song } | null>(null);
   const lanes = useRef<HTMLDivElement>(null);
@@ -125,6 +140,33 @@ export function Timeline(props: Props) {
     setDrag(null);
   };
 
+  const toBar = (seconds: number, fine: boolean) => snapBeat(song, seconds / secondsPerBeat(song), fine) * secondsPerBeat(song);
+
+  const sweepStart = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const at = toBar(secondsAt(event.clientX), event.shiftKey);
+    setSweep({ from: at, to: at, x: event.clientX });
+  };
+
+  const sweepMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (sweep) setSweep({ ...sweep, to: toBar(secondsAt(event.clientX), event.shiftKey) });
+  };
+
+  const sweepEnd = (event: PointerEvent<HTMLDivElement>) => {
+    if (!sweep) return;
+    setSweep(null);
+    if (Math.abs(event.clientX - sweep.x) < DRAG_START || sweep.from === sweep.to) {
+      onRange(null);
+      onSelect(null);
+      onSeek(secondsAt(event.clientX));
+      return;
+    }
+    onRange({ from: Math.min(sweep.from, sweep.to), to: Math.max(sweep.from, sweep.to) });
+  };
+
+  const shownRange = sweep ? { from: Math.min(sweep.from, sweep.to), to: Math.max(sweep.from, sweep.to) } : range;
+
   const seek = (event: MouseEvent<HTMLDivElement>) => {
     onSelect(null);
     onSeek(secondsAt(event.clientX));
@@ -161,7 +203,7 @@ export function Timeline(props: Props) {
           onDragOver={allowSnippet}
           onDrop={(event) => dropSnippet(event, null)}
         >
-          <div className="ms-ruler" onClick={seek}>
+          <div className="ms-ruler" onPointerDown={sweepStart} onPointerMove={sweepMove} onPointerUp={sweepEnd}>
             {Array.from({ length: bars }, (_, i) => (
               <span key={i} className="ms-bar" style={{ left: i * bar * pps }}>
                 {i + 1}
@@ -183,6 +225,7 @@ export function Timeline(props: Props) {
               ))}
             </div>
           ))}
+          {shownRange && <div className="ms-range" style={{ left: shownRange.from * pps, width: (shownRange.to - shownRange.from) * pps }} />}
           <div className="ms-playhead" style={{ left: position * pps }} />
         </div>
       </div>
@@ -246,12 +289,13 @@ interface ClipProps extends Props {
   onPress: (event: PointerEvent<HTMLElement>, clip: string, grip: Grip) => void;
 }
 
-function ClipBlock({ song, clip, engine, jobs, pps, picked, position, onPress, onEdit, onKeep, onRetry, onSnippet, onSelect }: ClipProps) {
+function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onPress, onEdit, onKeep, onRetry, onSnippet, onSplit, onSelect, onEditStart }: ClipProps) {
   const tips = useFloatingTips('top');
   const [menu, setMenu] = useState<MenuAnchor | null>(null);
   const left = clipStart(song, clip) * pps;
   const take = song.takes[clip.take];
-  const waiting = song.pending.filter((p) => p.clip === clip.id);
+  const waiting = song.pending.filter((p) => p.clip === clip.id && !p.split);
+  const splitting = song.pending.some((p) => p.clip === clip.id && p.split);
   const width = clipSeconds(clip) * pps;
   const stop = (event: MouseEvent) => event.stopPropagation();
 
@@ -290,10 +334,14 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, onPress, o
   const total = Math.max(clip.versions.length, clip.expected);
   const step = (by: number) => {
     const next = clip.versions[(index + by + clip.versions.length) % clip.versions.length];
-    if (next) onEdit((s) => withClip(s, clip.id, (c) => ({ ...c, take: next, offset: 0, length: s.takes[next]!.seconds })));
+    if (next) onEdit((s) => withVersion(s, clip.id, next));
   };
   const start = clipStart(song, clip);
   const inside = position > start && position < start + clip.length && clip.loops === 1;
+  const begin = (kind: EditKind) => {
+    setMenu(null);
+    onEditStart(kind, clip.id);
+  };
   const act = (edit: (s: Song) => Song) => {
     setMenu(null);
     onEdit(edit);
@@ -315,6 +363,16 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, onPress, o
       {clip.fadeOut > 0 && <span className="ms-fade ms-fade-out" style={{ width: clip.fadeOut * pps }} />}
       <div className="ms-clip-bar">
         <span className="ms-clip-name">{take.words || 'Audio'}</span>
+        {splitting && (
+          <StatusWord tone="info" live>
+            Splitting
+          </StatusWord>
+        )}
+        {waiting.length > 0 && (
+          <StatusWord tone="info" live>
+            Making
+          </StatusWord>
+        )}
         {clip.versions.length > 0 && (
           <span className="ms-versions" onPointerDown={(event) => event.stopPropagation()}>
             <IconButton size="sm" aria-label="Previous version" onClick={() => step(-1)}>
@@ -348,6 +406,11 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, onPress, o
       </span>
       {menu && (
         <MenuSurface anchor={menu} onDismiss={() => setMenu(null)}>
+          {edits.restyle && <MItem icon={<Icon name="palette-line" size={14} />} label="Change the style" onClick={() => begin('restyle')} />}
+          {edits.repaint && <MItem icon={<Icon name="brush-line" size={14} />} label="Redo a part" onClick={() => begin('repaint')} />}
+          {edits.repaint && <MItem icon={<Icon name="expand-right-line" size={14} />} label="Make it longer" onClick={() => begin('longer')} />}
+          {edits.addPart && <MItem icon={<Icon name="add-circle-line" size={14} />} label="Add a part" onClick={() => begin('add')} />}
+          {(edits.restyle || edits.repaint || edits.addPart) && <MDivider />}
           <MItem icon={<Icon name="scissors-cut-line" size={14} />} label="Cut at the playhead" disabled={!inside} onClick={() => act((s) => cutAt(s, clip.id, position))} />
           <MItem
             icon={<Icon name="file-copy-line" size={14} />}
@@ -361,6 +424,15 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, onPress, o
           <MItem icon={<Icon name="repeat-2-line" size={14} />} label="Loop once more" onClick={() => act((s) => setLoops(s, clip.id, clip.loops + 1))} />
           <MItem icon={<Icon name="contrast-drop-line" size={14} />} label="Fade in" checked={clip.fadeIn > 0} onClick={() => act((s) => toggleFade(s, clip.id, 'in'))} />
           <MItem icon={<Icon name="contrast-drop-2-line" size={14} />} label="Fade out" checked={clip.fadeOut > 0} onClick={() => act((s) => toggleFade(s, clip.id, 'out'))} />
+          <MItem
+            icon={<Icon name="git-branch-line" size={14} />}
+            label="Split into parts"
+            disabled={splitting}
+            onClick={() => {
+              setMenu(null);
+              onSplit(clip.id);
+            }}
+          />
           <MDivider />
           <MItem
             icon={<Icon name="bookmark-line" size={14} />}

@@ -12,7 +12,7 @@ import {
 } from '@hearthscale/app-ui';
 import type { Job } from '@hearthscale/app';
 import { findTempo } from './analyse';
-import { Engine, wav } from './audio';
+import { Engine, excerpt, RATE, wav } from './audio';
 import { call, keepWidgetState, onNote, reason, saveFile, settings, tool, upload, widgetState } from './bridge';
 import { addTrack, clipOf, duplicate, newClip, placeClip, removeClip } from './edit';
 import { catchUp, isOver, settle } from './jobs';
@@ -33,12 +33,15 @@ import {
   type SongRow,
   type VersionRow,
 } from './library';
+import { EditPanel, type EditKind, type EditRequest } from './EditPanel';
+import { editsOf } from './edits';
 import { MakePanel, type MakeRequest } from './MakePanel';
-import { useMusicModels } from './models';
+import { musicCard, useMusicModels } from './models';
 import { abilities, musicSchema, newSeed, songInput } from './music';
 import { Snippets } from './Snippets';
 import {
   clipSeconds,
+  clipStart,
   newId,
   newSong,
   newTrack,
@@ -47,10 +50,11 @@ import {
   songSeconds,
   withClip,
   type Ask,
+  type Clip,
   type Pending,
   type Song,
 } from './song';
-import { Timeline } from './Timeline';
+import { Timeline, type Range } from './Timeline';
 import { Versions } from './Versions';
 
 const KEYS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'].flatMap((note) => [
@@ -63,6 +67,12 @@ const CLICK_WINDOW_MS = 4000;
 
 /** The zoom steps of the timeline, in pixels a second. */
 const ZOOMS = [8, 12, 16, 24, 36, 54, 80, 120];
+
+/** The sample rate a separation job reads. */
+const SPLIT_RATE = 44_100;
+
+/** The most seconds Make it longer adds where the model states no longest piece. */
+const LONGEST_ADD = 60;
 
 /** The most edits undo goes back through. */
 const HISTORY = 200;
@@ -90,6 +100,8 @@ export function Studio() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [deleting, setDeleting] = useState<SongRow | null>(null);
   const [picked, setPicked] = useState<string | null>(() => localStorage.getItem('music-model'));
+  const [range, setRange] = useState<Range | null>(null);
+  const [editing, setEditing] = useState<{ kind: EditKind; clip: string } | null>(null);
   const [sidebar, setSidebar] = useState(true);
   const [panel, setPanel] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
@@ -236,6 +248,9 @@ export function Studio() {
         const { job } = note.params;
         setJobs((before) => ({ ...before, [job.id]: job }));
         if (!isOver(job)) return;
+        const pending = songRef.current?.pending.find((p) => p.job === job.id);
+        const onAudio = pending && (pending.split || songRef.current?.takes[clipOf(songRef.current, pending.clip)?.take ?? '']);
+        if (job.status === 'failed' && onAudio) setNotice({ text: job.error ?? 'The job failed.' });
         if (songRef.current?.pending.some((p) => p.job === job.id)) {
           void change(async (s) => withTempo(await settle(s, job, engine.current!)));
           return;
@@ -350,7 +365,7 @@ export function Studio() {
   };
 
   /** Submits the versions a clip asks for; answers the jobs that started. */
-  const submit = async (ask: Ask, clip: string): Promise<Pending[]> => {
+  const submit = async (ask: Ask, clip: string, editing = false): Promise<Pending[]> => {
     const pendings: Pending[] = [];
     try {
       for (let i = 0; i < ask.count; i++) {
@@ -358,7 +373,7 @@ export function Studio() {
         const input = seed === null ? ask.input : { ...ask.input, seed };
         const { job } = await call('hearthscale/jobs/submit', { kind: 'music', input, model: ask.model });
         setJobs((before) => ({ ...before, [job.id]: job }));
-        pendings.push({ job: job.id, clip, words: ask.words, model: ask.model, ...(seed === null ? {} : { seed }) });
+        pendings.push({ job: job.id, clip, words: ask.words, model: ask.model, ...(seed === null ? {} : { seed }), ...(editing ? { edit: true } : {}) });
       }
     } catch (error) {
       fail(error);
@@ -437,6 +452,105 @@ export function Studio() {
       ...withClip(s, id, (c) => ({ ...c, expected: pendings.length, failure: undefined })),
       pending: [...s.pending, ...pendings],
     }));
+  };
+
+  /** Splits a clip into its parts on the separation model: vocals, drums, bass and the rest. */
+  const split = async (clipId: string) => {
+    const current = songRef.current;
+    const clip = current && clipOf(current, clipId);
+    const take = clip && current.takes[clip.take];
+    if (!current || !clip || !take) return;
+    try {
+      const name = take.words || current.title;
+      const piece = await excerpt(engine.current!, take.asset, clip.offset, clip.length, SPLIT_RATE);
+      const asset = await upload(`${name}.wav`, 'audio/wav', wav(piece));
+      const { job } = await call('hearthscale/jobs/submit', { kind: 'separation', input: { audio: asset } });
+      setJobs((before) => ({ ...before, [job.id]: job }));
+      await change((s) => ({
+        ...s,
+        takes: { ...s.takes, [newId()]: { asset, seconds: clip.length, made: 'split', words: name } },
+        pending: [...s.pending, { job: job.id, clip: clipId, words: name, split: true }],
+      }));
+    } catch (error) {
+      fail(error);
+    }
+  };
+
+  /** Runs an edit of a clip on the music model: its result plays at once, beside the clip's own audio. */
+  const performEdit = async (request: EditRequest) => {
+    const current = songRef.current;
+    const clip = current && clipOf(current, request.clip);
+    const take = clip && current.takes[clip.take];
+    const model = musicCard(models, picked);
+    const schema = model && musicSchema(model);
+    if (!current || !clip || !take || !model || !schema) return;
+    const can = editsOf(schema);
+    setEditing(null);
+    try {
+      const pad = request.kind === 'longer' ? request.seconds : 0;
+      const piece = await excerpt(engine.current!, take.asset, clip.offset, clip.length, RATE, pad);
+      const start = clipStart(current, clip);
+      const fields =
+        request.kind === 'restyle'
+          ? can.restyle!(request.change)
+          : request.kind === 'longer'
+            ? can.repaint!(clip.length, clip.length + pad)
+            : request.kind === 'add'
+              ? can.addPart!(request.part)
+              : can.repaint!(Math.max(0, range!.from - start), Math.min(clip.length, range!.to - start));
+      const asset = await upload(`${take.words || current.title}.wav`, 'audio/wav', wav(piece));
+      const base = songInput(schema, {
+        words: request.words,
+        styles: [],
+        seconds: piece.duration,
+        instrumental: false,
+        lyrics: '',
+        tempo: current.tempo,
+        key: current.key,
+        seed: null,
+      });
+      const ask: Ask = {
+        model: model.id,
+        input: { ...base, audio: asset, ...fields },
+        words: request.words,
+        seeded: abilities(schema).seed,
+        count: Math.max(1, Math.min(4, Number(settings().versions ?? 1))),
+      };
+      const source = { [newId()]: { asset, seconds: piece.duration, made: 'imported' as const, words: take.words } };
+      if (request.kind === 'add') {
+        const target = { ...newClip('', clip.startBeat, 0), ask };
+        const pendings = await submit(ask, target.id);
+        if (pendings.length === 0) return;
+        await edit((s) => {
+          const added = addTrack(s, request.part.charAt(0).toUpperCase() + request.part.slice(1));
+          const placed = placeClip(added.song, added.track, { ...target, expected: pendings.length });
+          return { ...placed, takes: { ...placed.takes, ...source }, pending: [...s.pending, ...pendings] };
+        });
+        return;
+      }
+      const pendings = await submit(ask, clip.id, true);
+      if (pendings.length === 0) return;
+      await edit((s) => {
+        const now = clipOf(s, clip.id);
+        if (!now) return s;
+        const own = newId();
+        const takes = { ...s.takes, ...source };
+        const first = now.versions.length === 0;
+        if (first) takes[own] = { ...s.takes[now.take]!, start: now.offset, span: now.length };
+        const versions = first ? [own] : now.versions;
+        return {
+          ...withClip({ ...s, takes }, clip.id, (c) => ({
+            ...c,
+            take: first ? own : c.take,
+            versions,
+            expected: versions.length + pendings.length,
+          })),
+          pending: [...s.pending, ...pendings],
+        };
+      });
+    } catch (error) {
+      fail(error);
+    }
   };
 
   const keepSnippet = async (clipId: string) => {
@@ -546,6 +660,12 @@ export function Studio() {
     setPosition(seconds);
     void engine.current!.seek(current, seconds, ended).catch(fail);
   };
+
+  const card = musicCard(models, picked);
+  const schema = card ? musicSchema(card) : null;
+  const edits = schema ? editsOf(schema) : {};
+  const editedClip = editing && song ? clipOf(song, editing.clip) : undefined;
+  const longestAdd = Math.max(2, (schema ? (abilities(schema).length?.max ?? LONGEST_ADD) : LONGEST_ADD) - Math.ceil(editedClip?.length ?? 0));
 
   if (!loaded) return null;
 
@@ -711,6 +831,11 @@ export function Studio() {
                   onKeep={(clip) => void edit((s) => withClip(s, clip, (c) => ({ ...c, versions: [], expected: 0 })))}
                   onRetry={(clip) => void retry(clip)}
                   onSnippet={(clip) => void keepSnippet(clip)}
+                  onSplit={(clip) => void split(clip)}
+                  range={range}
+                  onRange={setRange}
+                  edits={edits}
+                  onEditStart={(kind, clip) => setEditing({ kind, clip })}
                   onDropSnippet={dropSnippet}
                 />
               ) : (
@@ -718,15 +843,28 @@ export function Studio() {
                   <EmptyState icon={<Icon name="music-ai-line" size={30} />} title="Describe a song to make it" />
                 </div>
               )}
-              <MakePanel
-                models={models}
-                picked={picked}
-                onPick={(card) => {
-                  localStorage.setItem('music-model', card);
-                  setPicked(card);
-                }}
-                onMake={(request) => void make(request)}
-              />
+              {editing && editedClip ? (
+                <EditPanel
+                  key={`${editing.kind}-${editing.clip}`}
+                  kind={editing.kind}
+                  clip={editing.clip}
+                  words={song.takes[editedClip.take]?.words ?? ''}
+                  bars={barsOf(song, editedClip, range)}
+                  longest={longestAdd}
+                  onGo={(request) => void performEdit(request)}
+                  onClose={() => setEditing(null)}
+                />
+              ) : (
+                <MakePanel
+                  models={models}
+                  card={card}
+                  onPick={(id) => {
+                    localStorage.setItem('music-model', id);
+                    setPicked(id);
+                  }}
+                  onMake={(request) => void make(request)}
+                />
+              )}
             </div>
             {panel && (
               <aside className="ms-panel">
@@ -768,6 +906,18 @@ export function Studio() {
       )}
     </div>
   );
+}
+
+/** The bars of a clip the chosen range covers, as words, or why a part to redo is missing. */
+function barsOf(song: Song, clip: Clip, range: Range | null): { label: string } | { missing: string } {
+  const start = clipStart(song, clip);
+  const from = range ? Math.max(range.from, start) : 0;
+  const to = range ? Math.min(range.to, start + clip.length) : 0;
+  if (!range || to <= from) return { missing: 'Drag over the bar numbers above the tracks to choose the part.' };
+  const bar = secondsPerBeat(song) * song.beatsPerBar;
+  const first = Math.floor(from / bar) + 1;
+  const last = Math.max(first, Math.ceil(to / bar));
+  return { label: first === last ? `Bar ${first}` : `Bars ${first} to ${last}` };
 }
 
 /** A job of a song that is not open: its song takes the result and is kept. */
