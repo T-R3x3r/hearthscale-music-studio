@@ -5,7 +5,7 @@
  */
 import type { ModelCard } from '@hearthscale/app';
 
-export interface Field {
+interface Field {
   type?: string | string[];
   minimum?: number;
   maximum?: number;
@@ -75,7 +75,7 @@ function isNumber(field: Field): boolean {
   return types.includes('number') || types.includes('integer');
 }
 
-export interface SongRequest {
+interface SongRequest {
   words: string;
   styles: string[];
   seconds: number | null;

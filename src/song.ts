@@ -6,9 +6,9 @@
  */
 import type { LyricSection } from './lyrics';
 
-export type Made = 'generated' | 'recorded' | 'imported' | 'split';
+type Made = 'generated' | 'recorded' | 'imported' | 'split';
 
-export interface Take {
+interface Take {
   /** The platform asset that holds the audio, a WAV file. */
   asset: string;
   seconds: number;
@@ -110,11 +110,11 @@ export interface Song {
   louder: boolean;
 }
 
-export const SWATCHES = ['ocean', 'ember', 'jade', 'violet', 'sun', 'rose', 'sky', 'lime', 'plum', 'amber', 'indigo', 'moss'] as const;
-export type Swatch = (typeof SWATCHES)[number];
+const SWATCHES = ['ocean', 'ember', 'jade', 'violet', 'sun', 'rose', 'sky', 'lime', 'plum', 'amber', 'indigo', 'moss'] as const;
+type Swatch = (typeof SWATCHES)[number];
 
 /** The tempo the grid uses while the song has none. */
-export const GRID_TEMPO = 120;
+const GRID_TEMPO = 120;
 
 export function newId(): string {
   return crypto.randomUUID();

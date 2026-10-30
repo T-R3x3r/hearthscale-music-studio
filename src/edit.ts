@@ -27,7 +27,7 @@ export function snapBeat(song: Song, beat: number, fine: boolean): number {
   return Math.max(0, Math.round(beat / step) * step);
 }
 
-export function trackOf(song: Song, clip: string): Track | undefined {
+function trackOf(song: Song, clip: string): Track | undefined {
   return song.tracks.find((t) => t.clips.some((c) => c.id === clip));
 }
 

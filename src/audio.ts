@@ -15,7 +15,7 @@ const LEAD = 0.05;
 const TICK_AHEAD = 0.3;
 const TICK_EVERY_MS = 100;
 
-export interface PlayOptions {
+interface PlayOptions {
   /** Seconds of clicks before the song starts. */
   countIn?: number;
   metronome?: boolean;
