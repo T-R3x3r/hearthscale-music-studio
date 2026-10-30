@@ -357,6 +357,7 @@ body {
 }
 
 .ms-letter {
+  box-shadow: var(--ring);
   font-size: var(--fs-sm);
   font-weight: var(--fw-semi);
 }
