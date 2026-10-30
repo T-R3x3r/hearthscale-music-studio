@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import { PublisherPicturesContext } from '@hearthscale/app-ui';
-import { connect, publisherPicture } from './bridge';
+import { call, connect, publisherPicture } from './bridge';
 import { Studio } from './Studio';
 import sheet from './ui.css';
 
@@ -9,6 +9,7 @@ style.textContent = sheet;
 document.head.append(style);
 
 await connect();
+void call('hearthscale/ui/set-tab', { title: 'Music studio' });
 const root = document.createElement('div');
 root.className = 'ms-root';
 document.body.append(root);
