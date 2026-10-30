@@ -255,12 +255,12 @@ function TrackHead({ track, onEdit }: { track: Track; onEdit: (edit: Edit) => vo
         </IconButton>
       </div>
       <div className="ms-lane-controls">
-        <button type="button" className="ms-toggle" aria-pressed={track.muted} aria-label="Mute" onClick={() => set({ muted: !track.muted })}>
+        <IconButton className="ms-switch-button ms-letter" aria-pressed={track.muted} aria-label="Mute" onClick={() => set({ muted: !track.muted })}>
           M
-        </button>
-        <button type="button" className="ms-toggle" aria-pressed={track.solo} aria-label="Solo" onClick={() => set({ solo: !track.solo })}>
+        </IconButton>
+        <IconButton className="ms-switch-button ms-letter" aria-pressed={track.solo} aria-label="Solo" onClick={() => set({ solo: !track.solo })}>
           S
-        </button>
+        </IconButton>
         <div className="ms-lane-volume">
           <Slider label="Volume" min={0} max={1.5} step={0.05} value={track.volume} onChange={(volume) => set({ volume })} />
         </div>

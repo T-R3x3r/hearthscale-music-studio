@@ -925,16 +925,20 @@ export function Studio() {
       <header className="ms-top">
         {song && (
           <>
-            <button
-              type="button"
-              className={narrow ? 'ms-toggle' : 'ms-toggle ms-toggle-text'}
-              aria-label={narrow ? 'Ask' : undefined}
-              aria-pressed={chat}
-              onClick={() => setChat((c) => !c)}
-            >
-              <Icon name="chat-smile-ai-line" size={14} />
-              {!narrow && 'Ask'}
-            </button>
+            {narrow ? (
+              <IconButton className="ms-switch-button" aria-label="Ask" aria-pressed={chat} onClick={() => setChat((c) => !c)}>
+                <Icon name="chat-smile-ai-line" size={16} />
+              </IconButton>
+            ) : (
+              <Button
+                variant={chat ? 'secondary' : 'ghost'}
+                aria-pressed={chat}
+                icon={<Icon name="chat-smile-ai-line" size={14} />}
+                onClick={() => setChat((c) => !c)}
+              >
+                Ask
+              </Button>
+            )}
             <input
               className="ms-title"
               aria-label="Song title"
@@ -1034,16 +1038,20 @@ export function Studio() {
             )}
           </>
         )}
-        <button
-          type="button"
-          className={narrow ? 'ms-toggle' : 'ms-toggle ms-toggle-text'}
-          aria-label={narrow ? 'Library' : undefined}
-          aria-pressed={library !== null}
-          onClick={() => setLibrary((l) => (l ? null : 'songs'))}
-        >
-          <Icon name="play-list-2-line" size={14} />
-          {!narrow && 'Library'}
-        </button>
+        {narrow ? (
+          <IconButton className="ms-switch-button" aria-label="Library" aria-pressed={library !== null} onClick={() => setLibrary((l) => (l ? null : 'songs'))}>
+            <Icon name="play-list-2-line" size={16} />
+          </IconButton>
+        ) : (
+          <Button
+            variant={library !== null ? 'secondary' : 'ghost'}
+            aria-pressed={library !== null}
+            icon={<Icon name="play-list-2-line" size={14} />}
+            onClick={() => setLibrary((l) => (l ? null : 'songs'))}
+          >
+            Library
+          </Button>
+        )}
       </header>
       {song && (
         <div className="ms-transport">
@@ -1063,9 +1071,8 @@ export function Studio() {
           >
             {recordingNow ? 'Stop recording' : 'Record'}
           </Button>
-          <button
-            type="button"
-            className="ms-toggle"
+          <IconButton
+            className="ms-switch-button"
             aria-label="Metronome"
             aria-pressed={metronome}
             onClick={() => {
@@ -1073,8 +1080,8 @@ export function Studio() {
               setMetronome(!metronome);
             }}
           >
-            <Icon name="timer-flash-line" size={14} />
-          </button>
+            <Icon name="timer-flash-line" size={16} />
+          </IconButton>
           <span className="ms-num ms-clock">{clock(position)}</span>
           <div className="ms-tempo">
             <TextInput
@@ -1100,15 +1107,14 @@ export function Studio() {
             onPick={(key) => void edit((s) => ({ ...s, key: key || null }))}
             menuHeight={320}
           />
-          <button
-            type="button"
-            className="ms-toggle"
+          <IconButton
+            className="ms-switch-button"
             aria-label="Louder"
             aria-pressed={song.louder}
             onClick={() => void edit((s) => ({ ...s, louder: !s.louder }))}
           >
-            <Icon name="volume-up-line" size={14} />
-          </button>
+            <Icon name="volume-up-line" size={16} />
+          </IconButton>
           <div className="hs-flex-spacer" />
           <IconButton aria-label="Zoom out" disabled={zoom === 0} onClick={() => setZoom((z) => Math.max(0, z - 1))}>
             <Icon name="zoom-out-line" size={16} />
