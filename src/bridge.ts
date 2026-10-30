@@ -180,8 +180,9 @@ export async function complete(request: CompletionRequest): Promise<string> {
   return text;
 }
 
-/** The host's words of a refused request, without the protocol's prefix. */
+/** The host's words of a refused request, without the protocol's prefix, as a sentence. */
 export function reason(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error);
-  return text.replace(/^MCP error -?\d+:\s*/, '');
+  const words = text.replace(/^MCP error -?\d+:\s*/, '');
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
