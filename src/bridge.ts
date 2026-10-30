@@ -98,15 +98,16 @@ export function settings(): SettingValues {
   return context()['hearthscale/settings'] ?? {};
 }
 
-export function widgetState(): unknown {
-  return context()['hearthscale/widgetState'];
-}
-
 let kept: Record<string, unknown> | null = null;
+
+/** The values kept for the view: the ones kept since it loaded, else the ones the host gave it when it loaded. */
+export function widgetState(): Record<string, unknown> | null {
+  return kept ?? ((context()['hearthscale/widgetState'] as Record<string, unknown> | null | undefined) ?? null);
+}
 
 /** Keeps values the host gives back in the widget state when it loads the view again, beside the ones kept before. */
 export async function keepWidgetState(values: Record<string, unknown>): Promise<void> {
-  kept = { ...(kept ?? ((widgetState() as Record<string, unknown> | null) ?? {})), ...values };
+  kept = { ...(widgetState() ?? {}), ...values };
   await call('hearthscale/ui/set-widget-state', { state: kept });
 }
 
