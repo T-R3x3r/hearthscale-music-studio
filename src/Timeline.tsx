@@ -1,105 +1,263 @@
-import { useEffect, useRef, type MouseEvent } from 'react';
-import { Button, Icon, IconButton, StatusWord, useFloatingTips } from '@hearthscale/app-ui';
+import { useEffect, useRef, useState, type DragEvent, type MouseEvent, type PointerEvent } from 'react';
+import {
+  anchorFrom,
+  Button,
+  Icon,
+  IconButton,
+  MDivider,
+  MenuSurface,
+  MItem,
+  Slider,
+  StatusWord,
+  useFloatingTips,
+  type MenuAnchor,
+} from '@hearthscale/app-ui';
 import type { Job } from '@hearthscale/app';
 import { PEAKS_PER_SECOND, peaks, type Engine } from './audio';
-import { clipSeconds, clipStart, secondsPerBeat, songSeconds, type Clip, type Song } from './song';
-
-/** Pixels the timeline gives one second. */
-const PIXELS_PER_SECOND = 24;
+import {
+  changeTrack,
+  clipOf,
+  cutAt,
+  duplicate,
+  moveClip,
+  removeClip,
+  removeTrack,
+  setLoops,
+  snapBeat,
+  toggleFade,
+  trimEnd,
+  trimStart,
+} from './edit';
+import { clipSeconds, clipStart, newId, secondsPerBeat, songSeconds, withClip, type Clip, type Song, type Track } from './song';
 
 /** Seconds the timeline runs past the song's end. */
 const TAIL = 30;
+
+/** Pixels the pointer moves before a press on a clip becomes a drag. */
+const DRAG_START = 3;
+
+/** The data type a snippet carries while it is dragged. */
+export const SNIPPET_DRAG = 'application/x-music-studio-snippet';
+
+type Edit = (song: Song) => Song;
 
 interface Props {
   song: Song;
   engine: Engine;
   position: number;
+  pixelsPerSecond: number;
   jobs: Record<string, Job>;
+  selected: string | null;
+  onSelect: (clip: string | null) => void;
   onSeek: (seconds: number) => void;
-  onVersion: (clip: string, take: string) => void;
+  onEdit: (edit: Edit) => void;
   onKeep: (clip: string) => void;
-  onRemove: (clip: string) => void;
   onRetry: (clip: string) => void;
+  onSnippet: (clip: string) => void;
+  onDropSnippet: (snippet: string, track: string | null, beat: number) => void;
 }
 
-export function Timeline({ song, engine, position, jobs, onSeek, onVersion, onKeep, onRemove, onRetry }: Props) {
-  const seconds = songSeconds(song) + TAIL;
-  const width = seconds * PIXELS_PER_SECOND;
-  const bar = secondsPerBeat(song) * song.beatsPerBar;
+type Grip = 'move' | 'start' | 'end' | 'loop';
+
+interface Drag {
+  clip: string;
+  grip: Grip;
+  x: number;
+  moved: boolean;
+}
+
+export function Timeline(props: Props) {
+  const { song, position, pixelsPerSecond: pps, selected, onSelect, onSeek, onEdit, onDropSnippet } = props;
+  const [drag, setDrag] = useState<Drag | null>(null);
+  const [draft, setDraft] = useState<{ edit: Edit; song: Song } | null>(null);
+  const lanes = useRef<HTMLDivElement>(null);
+  const shown = draft?.song ?? song;
+  const seconds = songSeconds(shown) + TAIL;
+  const bar = secondsPerBeat(shown) * shown.beatsPerBar;
   const bars = Math.ceil(seconds / bar);
 
+  const secondsAt = (clientX: number) => {
+    const box = lanes.current!.getBoundingClientRect();
+    return Math.max(0, (clientX - box.left) / pps);
+  };
+
+  const trackAt = (clientX: number, clientY: number) =>
+    (document.elementFromPoint(clientX, clientY)?.closest('[data-track]') as HTMLElement | null)?.dataset.track ?? null;
+
+  const press = (event: PointerEvent<HTMLElement>, clip: string, grip: Grip) => {
+    // A menu drawn in a portal passes its presses up through the clip's React tree.
+    if (event.button !== 0 || !event.currentTarget.contains(event.target as Node)) return;
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    onSelect(clip);
+    setDrag({ clip, grip, x: event.clientX, moved: false });
+  };
+
+  const move = (event: PointerEvent<HTMLElement>) => {
+    if (!drag) return;
+    const dx = event.clientX - drag.x;
+    if (!drag.moved && Math.abs(dx) < DRAG_START) return;
+    const clip = clipOf(song, drag.clip);
+    if (!clip) return;
+    const beats = dx / pps / secondsPerBeat(song);
+    const fine = event.shiftKey;
+    let edit: Edit;
+    if (drag.grip === 'move') {
+      const track = trackAt(event.clientX, event.clientY) ?? song.tracks.find((t) => t.clips.includes(clip))!.id;
+      const beat = snapBeat(song, clip.startBeat + beats, fine);
+      edit = (s) => moveClip(s, drag.clip, track, beat);
+    } else if (drag.grip === 'start') {
+      const beat = snapBeat(song, clip.startBeat + beats, fine);
+      edit = (s) => trimStart(s, drag.clip, beat);
+    } else {
+      const end = clip.startBeat + clipSeconds(clip) / secondsPerBeat(song);
+      const until = snapBeat(song, end + beats, fine);
+      const span = (until - clip.startBeat) * secondsPerBeat(song);
+      edit = drag.grip === 'end' ? (s) => trimEnd(s, drag.clip, span) : (s) => setLoops(s, drag.clip, span / clip.length);
+    }
+    setDrag({ ...drag, moved: true });
+    setDraft({ edit, song: edit(song) });
+  };
+
+  const release = () => {
+    if (draft) onEdit(draft.edit);
+    setDraft(null);
+    setDrag(null);
+  };
+
   const seek = (event: MouseEvent<HTMLDivElement>) => {
-    const box = event.currentTarget.getBoundingClientRect();
-    onSeek(Math.max(0, (event.clientX - box.left) / PIXELS_PER_SECOND));
+    onSelect(null);
+    onSeek(secondsAt(event.clientX));
+  };
+
+  const dropSnippet = (event: DragEvent<HTMLDivElement>, track: string | null) => {
+    const snippet = event.dataTransfer.getData(SNIPPET_DRAG);
+    if (!snippet) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onDropSnippet(snippet, track, snapBeat(song, secondsAt(event.clientX) / secondsPerBeat(song), event.shiftKey));
+  };
+
+  const allowSnippet = (event: DragEvent<HTMLDivElement>) => {
+    if (event.dataTransfer.types.includes(SNIPPET_DRAG)) event.preventDefault();
   };
 
   return (
     <div className="ms-timeline">
       <div className="ms-lane-heads">
         <div className="ms-ruler-head" />
-        {song.tracks.map((track) => (
-          <div key={track.id} className="ms-lane-head" data-swatch={track.swatch}>
-            <span className="hs-swatch-dot" />
-            <span className="ms-lane-name">{track.name}</span>
-          </div>
+        {shown.tracks.map((track) => (
+          <TrackHead key={track.id} track={track} onEdit={onEdit} />
         ))}
       </div>
       <div className="ms-lanes-scroll">
-        <div className="ms-lanes" style={{ width }}>
+        <div
+          ref={lanes}
+          className="ms-lanes"
+          style={{ width: seconds * pps }}
+          onPointerMove={move}
+          onPointerUp={release}
+          onPointerCancel={release}
+          onDragOver={allowSnippet}
+          onDrop={(event) => dropSnippet(event, null)}
+        >
           <div className="ms-ruler" onClick={seek}>
             {Array.from({ length: bars }, (_, i) => (
-              <span key={i} className="ms-bar" style={{ left: i * bar * PIXELS_PER_SECOND }}>
+              <span key={i} className="ms-bar" style={{ left: i * bar * pps }}>
                 {i + 1}
               </span>
             ))}
           </div>
-          {song.tracks.map((track) => (
-            <div key={track.id} className="ms-lane" data-swatch={track.swatch} onClick={seek}>
+          {shown.tracks.map((track) => (
+            <div
+              key={track.id}
+              className="ms-lane"
+              data-swatch={track.swatch}
+              data-track={track.id}
+              onClick={seek}
+              onDragOver={allowSnippet}
+              onDrop={(event) => dropSnippet(event, track.id)}
+            >
               {track.clips.map((clip) => (
-                <ClipBlock
-                  key={clip.id}
-                  song={song}
-                  clip={clip}
-                  engine={engine}
-                  jobs={jobs}
-                  onVersion={onVersion}
-                  onKeep={onKeep}
-                  onRemove={onRemove}
-                  onRetry={onRetry}
-                />
+                <ClipBlock key={clip.id} {...props} song={shown} clip={clip} pps={pps} picked={clip.id === selected} onPress={press} />
               ))}
             </div>
           ))}
-          <div className="ms-playhead" style={{ left: position * PIXELS_PER_SECOND }} />
+          <div className="ms-playhead" style={{ left: position * pps }} />
         </div>
       </div>
     </div>
   );
 }
 
-interface ClipProps {
-  song: Song;
-  clip: Clip;
-  engine: Engine;
-  jobs: Record<string, Job>;
-  onVersion: (clip: string, take: string) => void;
-  onKeep: (clip: string) => void;
-  onRemove: (clip: string) => void;
-  onRetry: (clip: string) => void;
+function TrackHead({ track, onEdit }: { track: Track; onEdit: (edit: Edit) => void }) {
+  const [menu, setMenu] = useState<MenuAnchor | null>(null);
+  const set = (change: Partial<Omit<Track, 'id' | 'clips'>>) => onEdit((s) => changeTrack(s, track.id, change));
+  return (
+    <div className="ms-lane-head" data-swatch={track.swatch}>
+      <div className="ms-lane-title">
+        <span className="hs-swatch-dot" />
+        <input
+          className="ms-lane-name"
+          aria-label="Track name"
+          value={track.name}
+          onChange={(event) => set({ name: event.target.value })}
+        />
+        <IconButton size="sm" aria-label="Track menu" onClick={(event) => setMenu(anchorFrom('track', event))}>
+          <Icon name="more-2-line" size={14} />
+        </IconButton>
+      </div>
+      <div className="ms-lane-controls">
+        <button type="button" className="ms-toggle" aria-pressed={track.muted} aria-label="Mute" onClick={() => set({ muted: !track.muted })}>
+          M
+        </button>
+        <button type="button" className="ms-toggle" aria-pressed={track.solo} aria-label="Solo" onClick={() => set({ solo: !track.solo })}>
+          S
+        </button>
+        <div className="ms-lane-volume">
+          <Slider label="Volume" min={0} max={1.5} step={0.05} value={track.volume} onChange={(volume) => set({ volume })} />
+        </div>
+      </div>
+      {menu && (
+        <MenuSurface anchor={menu} onDismiss={() => setMenu(null)}>
+          <MItem icon={<Icon name="arrow-left-line" size={14} />} label="Pan left" checked={track.pan < 0} onClick={() => set({ pan: -0.6 })} />
+          <MItem icon={<Icon name="focus-3-line" size={14} />} label="Pan centre" checked={track.pan === 0} onClick={() => set({ pan: 0 })} />
+          <MItem icon={<Icon name="arrow-right-line" size={14} />} label="Pan right" checked={track.pan > 0} onClick={() => set({ pan: 0.6 })} />
+          <MDivider />
+          <MItem
+            icon={<Icon name="delete-bin-line" size={14} />}
+            label="Delete track"
+            danger
+            onClick={() => {
+              setMenu(null);
+              onEdit((s) => removeTrack(s, track.id));
+            }}
+          />
+        </MenuSurface>
+      )}
+    </div>
+  );
 }
 
-function ClipBlock({ song, clip, engine, jobs, onVersion, onKeep, onRemove, onRetry }: ClipProps) {
+interface ClipProps extends Props {
+  clip: Clip;
+  pps: number;
+  picked: boolean;
+  onPress: (event: PointerEvent<HTMLElement>, clip: string, grip: Grip) => void;
+}
+
+function ClipBlock({ song, clip, engine, jobs, pps, picked, position, onPress, onEdit, onKeep, onRetry, onSnippet, onSelect }: ClipProps) {
   const tips = useFloatingTips('top');
-  const left = clipStart(song, clip) * PIXELS_PER_SECOND;
+  const [menu, setMenu] = useState<MenuAnchor | null>(null);
+  const left = clipStart(song, clip) * pps;
   const take = song.takes[clip.take];
   const waiting = song.pending.filter((p) => p.clip === clip.id);
-  const width = clipSeconds(clip) * PIXELS_PER_SECOND;
+  const width = clipSeconds(clip) * pps;
   const stop = (event: MouseEvent) => event.stopPropagation();
 
   if (!take) {
     const job = waiting.map((p) => jobs[p.job]).find(Boolean);
-    const why = job?.waiting ?? clip.failure;
-    const hold = tips('hold', why);
+    const hold = tips('hold', job?.waiting ?? clip.failure);
     return (
       <div className="ms-clip ms-clip-waiting" style={{ left, width }} onClick={stop}>
         <span className="hs-tipwrap" {...hold.hover}>
@@ -119,7 +277,7 @@ function ClipBlock({ song, clip, engine, jobs, onVersion, onKeep, onRemove, onRe
                 Try again
               </Button>
             )}
-            <IconButton size="sm" aria-label="Remove" onClick={() => onRemove(clip.id)}>
+            <IconButton size="sm" aria-label="Remove" onClick={() => onEdit((s) => removeClip(s, clip.id))}>
               <Icon name="close-line" size={14} />
             </IconButton>
           </span>
@@ -132,16 +290,33 @@ function ClipBlock({ song, clip, engine, jobs, onVersion, onKeep, onRemove, onRe
   const total = Math.max(clip.versions.length, clip.expected);
   const step = (by: number) => {
     const next = clip.versions[(index + by + clip.versions.length) % clip.versions.length];
-    if (next) onVersion(clip.id, next);
+    if (next) onEdit((s) => withClip(s, clip.id, (c) => ({ ...c, take: next, offset: 0, length: s.takes[next]!.seconds })));
+  };
+  const start = clipStart(song, clip);
+  const inside = position > start && position < start + clip.length && clip.loops === 1;
+  const act = (edit: (s: Song) => Song) => {
+    setMenu(null);
+    onEdit(edit);
   };
 
   return (
-    <div className="ms-clip" style={{ left, width }} onClick={stop}>
-      <Wave asset={take.asset} offset={clip.offset} length={clip.length} engine={engine} />
+    <div
+      className="ms-clip"
+      data-picked={picked || undefined}
+      style={{ left, width }}
+      onClick={stop}
+      onPointerDown={(event) => onPress(event, clip.id, 'move')}
+    >
+      <Wave asset={take.asset} offset={clip.offset} length={clip.length} loops={clip.loops} engine={engine} />
+      {Array.from({ length: clip.loops - 1 }, (_, i) => (
+        <span key={i} className="ms-notch" style={{ left: (i + 1) * clip.length * pps }} />
+      ))}
+      {clip.fadeIn > 0 && <span className="ms-fade ms-fade-in" style={{ width: clip.fadeIn * pps }} />}
+      {clip.fadeOut > 0 && <span className="ms-fade ms-fade-out" style={{ width: clip.fadeOut * pps }} />}
       <div className="ms-clip-bar">
         <span className="ms-clip-name">{take.words || 'Audio'}</span>
         {clip.versions.length > 0 && (
-          <span className="ms-versions">
+          <span className="ms-versions" onPointerDown={(event) => event.stopPropagation()}>
             <IconButton size="sm" aria-label="Previous version" onClick={() => step(-1)}>
               <Icon name="arrow-left-s-line" size={14} />
             </IconButton>
@@ -158,7 +333,46 @@ function ClipBlock({ song, clip, engine, jobs, onVersion, onKeep, onRemove, onRe
             )}
           </span>
         )}
+        {picked && (
+          <span onPointerDown={(event) => event.stopPropagation()}>
+            <IconButton size="sm" aria-label="Clip menu" onClick={(event) => setMenu(anchorFrom('clip', event))}>
+              <Icon name="more-2-line" size={14} />
+            </IconButton>
+          </span>
+        )}
       </div>
+      {clip.loops === 1 && <span className="ms-grip ms-grip-start" onPointerDown={(event) => onPress(event, clip.id, 'start')} />}
+      {clip.loops === 1 && <span className="ms-grip ms-grip-end" onPointerDown={(event) => onPress(event, clip.id, 'end')} />}
+      <span className="ms-grip ms-grip-loop" aria-label="Loop" onPointerDown={(event) => onPress(event, clip.id, 'loop')}>
+        <Icon name="repeat-2-line" size={12} />
+      </span>
+      {menu && (
+        <MenuSurface anchor={menu} onDismiss={() => setMenu(null)}>
+          <MItem icon={<Icon name="scissors-cut-line" size={14} />} label="Cut at the playhead" disabled={!inside} onClick={() => act((s) => cutAt(s, clip.id, position))} />
+          <MItem
+            icon={<Icon name="file-copy-line" size={14} />}
+            label="Duplicate"
+            onClick={() => {
+              const copy = newId();
+              act((s) => duplicate(s, clip.id, copy));
+              onSelect(copy);
+            }}
+          />
+          <MItem icon={<Icon name="repeat-2-line" size={14} />} label="Loop once more" onClick={() => act((s) => setLoops(s, clip.id, clip.loops + 1))} />
+          <MItem icon={<Icon name="contrast-drop-line" size={14} />} label="Fade in" checked={clip.fadeIn > 0} onClick={() => act((s) => toggleFade(s, clip.id, 'in'))} />
+          <MItem icon={<Icon name="contrast-drop-2-line" size={14} />} label="Fade out" checked={clip.fadeOut > 0} onClick={() => act((s) => toggleFade(s, clip.id, 'out'))} />
+          <MDivider />
+          <MItem
+            icon={<Icon name="bookmark-line" size={14} />}
+            label="Save as snippet"
+            onClick={() => {
+              setMenu(null);
+              onSnippet(clip.id);
+            }}
+          />
+          <MItem icon={<Icon name="delete-bin-line" size={14} />} label="Delete" danger onClick={() => act((s) => removeClip(s, clip.id))} />
+        </MenuSurface>
+      )}
     </div>
   );
 }
@@ -175,7 +389,15 @@ function peaksOf(engine: Engine, asset: string): Promise<Float32Array> {
   return found;
 }
 
-function Wave({ asset, offset, length, engine }: { asset: string; offset: number; length: number; engine: Engine }) {
+interface WaveProps {
+  asset: string;
+  offset: number;
+  length: number;
+  loops: number;
+  engine: Engine;
+}
+
+function Wave({ asset, offset, length, loops, engine }: WaveProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     let live = true;
@@ -191,9 +413,11 @@ function Wave({ asset, offset, length, engine }: { asset: string; offset: number
       if (!draw) return;
       draw.fillStyle = getComputedStyle(element).color;
       const middle = height / 2;
+      const span = length * loops;
+      const at = (x: number) => Math.floor((offset + (((x / width) * span) % length)) * PEAKS_PER_SECOND);
       for (let x = 0; x < width; x++) {
-        const from = Math.floor((offset + (x / width) * length) * PEAKS_PER_SECOND);
-        const to = Math.max(from + 1, Math.floor((offset + ((x + 1) / width) * length) * PEAKS_PER_SECOND));
+        const from = at(x);
+        const to = Math.max(from + 1, at(x + 1));
         let level = 0;
         for (let i = from; i < to && i < points.length; i++) level = Math.max(level, points[i]!);
         const reach = Math.max(scale, level * middle);
@@ -203,6 +427,6 @@ function Wave({ asset, offset, length, engine }: { asset: string; offset: number
     return () => {
       live = false;
     };
-  }, [asset, offset, length, engine]);
+  }, [asset, offset, length, loops, engine]);
   return <canvas ref={canvas} className="ms-wave" />;
 }

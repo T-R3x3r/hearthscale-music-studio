@@ -151,6 +151,77 @@ body {
   min-height: 0;
 }
 
+.ms-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.ms-work {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.ms-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-stack);
+  width: var(--w-sidebar);
+  padding: calc(var(--space) * 3);
+  border-left: var(--bw) solid var(--line);
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.ms-snippets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-label);
+}
+
+.ms-snippet {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-inline);
+  padding: calc(var(--space) * 1);
+  border-radius: var(--r-ctl);
+  cursor: grab;
+}
+
+.ms-snippet:hover {
+  background: var(--hov);
+}
+
+.ms-snippet-name,
+.ms-lane-name {
+  flex: 1;
+  min-width: 0;
+  padding: 0 calc(var(--space) * 1);
+  border: var(--bw) solid transparent;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-overflow: ellipsis;
+}
+
+.ms-snippet-name:hover,
+.ms-snippet-name:focus,
+.ms-lane-name:hover,
+.ms-lane-name:focus {
+  border-color: var(--line);
+  outline: none;
+}
+
+.ms-popover {
+  display: flex;
+  gap: var(--gap-inline);
+  padding: calc(var(--space) * 3);
+}
+
 .ms-timeline {
   display: flex;
   flex: 1;
@@ -160,7 +231,7 @@ body {
 .ms-lane-heads {
   display: flex;
   flex-direction: column;
-  width: calc(var(--space) * 36);
+  width: calc(var(--space) * 52);
   border-right: var(--bw) solid var(--line);
 }
 
@@ -172,18 +243,49 @@ body {
 
 .ms-lane-head {
   display: flex;
-  align-items: center;
-  gap: var(--gap-inline);
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--gap-label);
   height: calc(var(--space) * 22);
-  padding: 0 calc(var(--space) * 3);
+  padding: 0 calc(var(--space) * 2);
   border-bottom: var(--bw) solid var(--line);
   box-sizing: border-box;
 }
 
-.ms-lane-name {
+.ms-lane-title,
+.ms-lane-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-inline);
+}
+
+.ms-lane-volume {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.ms-toggle {
+  width: var(--h-ctl);
+  height: var(--h-ctl);
+  border: var(--bw) solid var(--line);
+  border-radius: var(--r-ctl);
+  background: none;
+  color: var(--mut);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semi);
+  cursor: pointer;
+}
+
+.ms-toggle:hover {
+  background: var(--hov);
+}
+
+.ms-toggle[aria-pressed='true'] {
+  border-color: var(--swatch);
+  background: var(--swatch-tint);
+  color: var(--swatch-ink);
 }
 
 .ms-lanes-scroll {
@@ -233,6 +335,82 @@ body {
   color: var(--swatch-ink);
 }
 
+.ms-clip:not(.ms-clip-waiting) {
+  cursor: grab;
+  touch-action: none;
+}
+
+.ms-clip[data-picked] {
+  box-shadow: inset 0 0 0 calc(var(--bw) * 2) var(--swatch);
+}
+
+.ms-grip {
+  position: absolute;
+  z-index: 1;
+}
+
+.ms-grip-start,
+.ms-grip-end {
+  bottom: 0;
+  width: calc(var(--space) * 2);
+  height: 60%;
+  cursor: ew-resize;
+}
+
+.ms-grip-start {
+  left: 0;
+}
+
+.ms-grip-end {
+  right: 0;
+}
+
+.ms-grip-loop {
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--space) * 5);
+  height: calc(var(--space) * 5);
+  border-bottom-left-radius: var(--r-sm);
+  background: var(--swatch);
+  color: var(--swatch-fill-ink);
+  cursor: col-resize;
+  opacity: 0;
+  transition: opacity var(--dur);
+}
+
+.ms-clip:hover .ms-grip-loop,
+.ms-clip[data-picked] .ms-grip-loop {
+  opacity: 1;
+}
+
+.ms-notch {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: var(--bw) dashed var(--swatch);
+  pointer-events: none;
+}
+
+.ms-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.ms-fade-in {
+  left: 0;
+  background: linear-gradient(to right, var(--bg), transparent);
+}
+
+.ms-fade-out {
+  right: 0;
+  background: linear-gradient(to left, var(--bg), transparent);
+}
+
 .ms-clip-waiting {
   flex-direction: row;
   align-items: center;
@@ -248,7 +426,7 @@ body {
   display: flex;
   align-items: center;
   gap: var(--gap-inline);
-  padding: calc(var(--space) * 0.5) calc(var(--space) * 1.5);
+  padding: calc(var(--space) * 0.5) calc(var(--space) * 6) calc(var(--space) * 0.5) calc(var(--space) * 1.5);
 }
 
 .ms-clip-name {

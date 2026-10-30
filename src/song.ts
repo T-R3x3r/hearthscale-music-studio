@@ -53,8 +53,18 @@ export interface Clip {
   startBeat: number;
   /** Where in the take the clip starts, in seconds. */
   offset: number;
-  /** How long the clip plays, in seconds. */
+  /** How long one pass of the clip plays, in seconds. */
   length: number;
+  /** How many times the clip plays its stretch, one after the other. */
+  loops: number;
+  /** Seconds the clip fades in at its start and out at its end. */
+  fadeIn: number;
+  fadeOut: number;
+}
+
+/** The length a fade takes when the person adds one: one beat. */
+export function fadeSeconds(song: Song): number {
+  return secondsPerBeat(song);
 }
 
 export interface Track {
@@ -108,9 +118,9 @@ export function clipStart(song: Song, clip: Clip): number {
   return clip.startBeat * secondsPerBeat(song);
 }
 
-/** The seconds a clip takes on the timeline: its length, or the length it waits for. */
+/** The seconds a clip takes on the timeline: every pass of it, or the length it waits for. */
 export function clipSeconds(clip: Clip): number {
-  if (clip.take) return clip.length;
+  if (clip.take) return clip.length * clip.loops;
   const asked = clip.ask?.input.seconds;
   return typeof asked === 'number' ? asked : WAITING_SECONDS;
 }
@@ -122,7 +132,7 @@ const WAITING_SECONDS = 30;
 export function songSeconds(song: Song): number {
   let end = 0;
   for (const track of song.tracks) {
-    for (const clip of track.clips) if (clip.take) end = Math.max(end, clipStart(song, clip) + clip.length);
+    for (const clip of track.clips) if (clip.take) end = Math.max(end, clipStart(song, clip) + clipSeconds(clip));
   }
   return end;
 }

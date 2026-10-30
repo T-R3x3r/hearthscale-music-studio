@@ -11,13 +11,32 @@ import {
   useFloatingTips,
 } from '@hearthscale/app-ui';
 import type { Job } from '@hearthscale/app';
+import { findTempo } from './analyse';
 import { Engine, wav } from './audio';
 import { call, keepWidgetState, onNote, reason, saveFile, settings, tool, upload, widgetState } from './bridge';
+import { addTrack, clipOf, duplicate, newClip, placeClip, removeClip } from './edit';
 import { catchUp, isOver, settle } from './jobs';
-import { deleteSong, listSongs, loadSong, openLibrary, saveSong, type SongRow } from './library';
+import {
+  deleteSnippet,
+  deleteSong,
+  listSnippets,
+  listSongs,
+  listVersions,
+  loadSong,
+  loadVersion,
+  openLibrary,
+  saveSnippet,
+  saveSong,
+  saveVersion,
+  unusedAssets,
+  type Snippet,
+  type SongRow,
+  type VersionRow,
+} from './library';
 import { MakePanel, type MakeRequest } from './MakePanel';
 import { useMusicModels } from './models';
-import { musicSchema, newSeed, abilities, songInput } from './music';
+import { abilities, musicSchema, newSeed, songInput } from './music';
+import { Snippets } from './Snippets';
 import {
   clipSeconds,
   newId,
@@ -28,11 +47,11 @@ import {
   songSeconds,
   withClip,
   type Ask,
-  type Clip,
   type Pending,
   type Song,
 } from './song';
 import { Timeline } from './Timeline';
+import { Versions } from './Versions';
 
 const KEYS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'].flatMap((note) => [
   `${note} major`,
@@ -42,9 +61,20 @@ const KEYS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'].f
 /** Time a click stays good for a request that needs one, with room to spare. */
 const CLICK_WINDOW_MS = 4000;
 
+/** The zoom steps of the timeline, in pixels a second. */
+const ZOOMS = [8, 12, 16, 24, 36, 54, 80, 120];
+
+/** The most edits undo goes back through. */
+const HISTORY = 200;
+
 interface Notice {
   text: string;
   action?: { label: string; onPress: () => void };
+}
+
+/** A song back as it was, with the audio and the jobs it has now: undo never loses a take. */
+function restore(snapshot: Song, current: Song): Song {
+  return { ...snapshot, takes: { ...snapshot.takes, ...current.takes }, pending: current.pending };
 }
 
 export function Studio() {
@@ -61,12 +91,23 @@ export function Studio() {
   const [deleting, setDeleting] = useState<SongRow | null>(null);
   const [picked, setPicked] = useState<string | null>(() => localStorage.getItem('music-model'));
   const [sidebar, setSidebar] = useState(true);
+  const [panel, setPanel] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(3);
+  const [snippets, setSnippets] = useState<Snippet[]>([]);
+  const [previewing, setPreviewing] = useState<string | null>(null);
+  const [versions, setVersions] = useState<VersionRow[]>([]);
+  const [, setDepth] = useState(0);
   const tips = useFloatingTips('bottom');
 
   const songRef = useRef<Song | null>(null);
   const chain = useRef<Promise<void>>(Promise.resolve());
   const saveTimer = useRef(0);
   const picker = useRef<HTMLInputElement>(null);
+  const past = useRef<Song[]>([]);
+  const future = useRef<Song[]>([]);
+  const selectedRef = useRef<string | null>(null);
+  selectedRef.current = selected;
 
   const fail = useCallback((error: unknown) => setNotice({ text: reason(error) }), []);
 
@@ -103,18 +144,72 @@ export function Studio() {
     [persist, fail],
   );
 
+  /** A change the person made, which undo takes back. */
+  const edit = useCallback(
+    (update: (song: Song) => Song) =>
+      change((current) => {
+        const next = update(current);
+        if (next !== current) {
+          past.current = [...past.current.slice(1 - HISTORY), current];
+          future.current = [];
+          setDepth((d) => d + 1);
+        }
+        return next;
+      }),
+    [change],
+  );
+
+  const undo = useCallback(
+    () =>
+      change((current) => {
+        const before = past.current.at(-1);
+        if (!before) return current;
+        past.current = past.current.slice(0, -1);
+        future.current = [...future.current, current];
+        setDepth((d) => d + 1);
+        return restore(before, current);
+      }),
+    [change],
+  );
+
+  const redo = useCallback(
+    () =>
+      change((current) => {
+        const after = future.current.at(-1);
+        if (!after) return current;
+        future.current = future.current.slice(0, -1);
+        past.current = [...past.current, current];
+        setDepth((d) => d + 1);
+        return restore(after, current);
+      }),
+    [change],
+  );
+
+  /** Sets the song's tempo from its first audio, where it has none yet. */
+  const withTempo = useCallback(async (s: Song): Promise<Song> => {
+    if (s.tempo !== null) return s;
+    const first = s.tracks.flatMap((t) => t.clips).find((c) => s.takes[c.take]);
+    if (!first) return s;
+    const tempo = await findTempo(await engine.current!.buffer(s.takes[first.take]!.asset));
+    return tempo === null ? s : { ...s, tempo };
+  }, []);
+
   const open = useCallback(
     async (id: string | null) => {
       engine.current!.stop();
       setPlaying(false);
       setPosition(0);
+      setSelected(null);
+      past.current = [];
+      future.current = [];
       const found = id ? await loadSong(id) : null;
       songRef.current = found;
       setSong(found);
+      setVersions(found ? await listVersions(found.id) : []);
       void keepWidgetState({ song: found?.id ?? null }).catch(fail);
-      if (found && found.pending.length > 0) await change((s) => catchUp(s, engine.current!));
+      if (found && found.pending.length > 0) await change(async (s) => withTempo(await catchUp(s, engine.current!)));
     },
-    [change],
+    [change, withTempo, fail],
   );
 
   useEffect(() => {
@@ -123,6 +218,7 @@ export function Studio() {
         await openLibrary();
         const list = await listSongs();
         setRows(list);
+        setSnippets(await listSnippets());
         const kept = (widgetState() as { song?: string } | null)?.song;
         await open(list.find((row) => row.id === kept)?.id ?? list[0]?.id ?? null);
       } catch (error) {
@@ -141,12 +237,12 @@ export function Studio() {
         setJobs((before) => ({ ...before, [job.id]: job }));
         if (!isOver(job)) return;
         if (songRef.current?.pending.some((p) => p.job === job.id)) {
-          void change((s) => settle(s, job, engine.current!));
+          void change(async (s) => withTempo(await settle(s, job, engine.current!)));
           return;
         }
         void settleElsewhere(job, engine.current!).then(refreshRows, fail);
       }),
-    [change, refreshRows, fail],
+    [change, withTempo, refreshRows, fail],
   );
 
   useEffect(() => {
@@ -186,15 +282,41 @@ export function Studio() {
   }, [ended, fail]);
 
   useEffect(() => {
+    const sound = engine.current!;
+    const heard = sound.playing;
+    if (!playing || !song || !heard || (song.tracks === heard.tracks && song.tempo === heard.tempo)) return;
+    void sound.play(song, sound.position(), ended).catch(fail);
+  }, [song, playing, ended, fail]);
+
+  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
-      if (event.code !== 'Space' || target.closest('input, textarea, [contenteditable="true"]')) return;
-      event.preventDefault();
-      void togglePlay();
+      if (target.closest('input, textarea, [contenteditable="true"]')) return;
+      const command = event.ctrlKey || event.metaKey;
+      const clip = selectedRef.current;
+      if (event.code === 'Space') {
+        event.preventDefault();
+        void togglePlay();
+      } else if (command && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        void (event.shiftKey ? redo() : undo());
+      } else if (command && event.key.toLowerCase() === 'y') {
+        event.preventDefault();
+        void redo();
+      } else if (command && event.key.toLowerCase() === 'd' && clip) {
+        event.preventDefault();
+        const copy = newId();
+        void edit((s) => duplicate(s, clip, copy));
+        setSelected(copy);
+      } else if ((event.key === 'Delete' || event.key === 'Backspace') && clip) {
+        event.preventDefault();
+        void edit((s) => removeClip(s, clip));
+        setSelected(null);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [togglePlay]);
+  }, [togglePlay, undo, redo, edit]);
 
   const createSong = async () => {
     const created = newSong(`Song ${rows.length + 1}`);
@@ -203,15 +325,20 @@ export function Studio() {
     await open(created.id);
   };
 
+  /** Deletes audio that nothing kept uses any more, on the press that asked for it. */
+  const forget = async (assets: string[], except: string | null, label: string) => {
+    const unused = await unusedAssets(assets, except);
+    if (unused.length > 0) await tool('forget_audio', { assets: unused }, label);
+    for (const asset of unused) engine.current!.forget(asset);
+  };
+
   const removeSong = async (row: SongRow) => {
     setDeleting(null);
     try {
       const doomed = row.id === songRef.current?.id ? songRef.current : await loadSong(row.id);
       if (doomed) {
         for (const pending of doomed.pending) await call('hearthscale/jobs/cancel', { id: pending.job }).catch(() => undefined);
-        const assets = songAssets(doomed);
-        if (assets.length > 0) await tool('forget_audio', { assets }, 'Delete song');
-        for (const asset of assets) engine.current!.forget(asset);
+        await forget(songAssets(doomed), doomed.id, 'Delete song');
       }
       await deleteSong(row.id);
       const list = await listSongs();
@@ -260,19 +387,142 @@ export function Studio() {
       seeded: abilities(schema).seed,
       count: Math.max(1, Math.min(4, Number(settings().versions ?? 1))),
     };
-    const clip: Clip = { id: newId(), ask, take: '', versions: [], expected: ask.count, startBeat: 0, offset: 0, length: 0 };
+    const clip = { ...newClip('', 0, 0), ask, expected: ask.count };
     const pendings = await submit(ask, clip.id);
     if (pendings.length === 0) return;
     clip.expected = pendings.length;
-    await change((s) => {
-      const track = s.tracks[0] ?? newTrack(s, 'Song');
+    await edit((s) => {
+      const first = s.tracks[0] ?? newTrack(s, 'Song');
       const bar = secondsPerBeat(s) * s.beatsPerBar;
-      const end = track.clips.reduce((at, c) => Math.max(at, c.startBeat * secondsPerBeat(s) + clipSeconds(c)), 0);
-      const startBeat = Math.ceil(end / bar) * s.beatsPerBar;
-      const placed: Clip = { ...clip, startBeat };
-      const tracks = s.tracks.length === 0 ? [{ ...track, clips: [placed] }] : s.tracks.map((t, i) => (i === 0 ? { ...t, clips: [...t.clips, placed] } : t));
+      const end = first.clips.reduce((at, c) => Math.max(at, c.startBeat * secondsPerBeat(s) + clipSeconds(c)), 0);
+      const placed = { ...clip, startBeat: Math.ceil(end / bar) * s.beatsPerBar };
+      const tracks = s.tracks.length === 0 ? [{ ...first, clips: [placed] }] : s.tracks.map((t, i) => (i === 0 ? { ...t, clips: [...t.clips, placed] } : t));
       return { ...s, tracks, pending: [...s.pending, ...pendings] };
     });
+  };
+
+  /** Puts each file on a track of its own, at the bar of the playhead. */
+  const importFiles = async (files: File[]) => {
+    for (const file of files) {
+      try {
+        const mediaType = file.type || mediaTypeOf(file.name);
+        if (!mediaType) throw new Error(`${file.name} is no sound file this app reads.`);
+        const asset = await upload(file.name, mediaType, file);
+        const buffer = await engine.current!.buffer(asset);
+        const tempo = songRef.current?.tempo ?? (await findTempo(buffer));
+        await edit((s) => {
+          const take = newId();
+          const name = file.name.replace(/\.[^.]+$/, '');
+          const timed = { ...s, tempo: s.tempo ?? tempo };
+          const bar = secondsPerBeat(timed) * timed.beatsPerBar;
+          const startBeat = Math.floor(engine.current!.position() / bar) * timed.beatsPerBar;
+          const added = addTrack(timed, name);
+          return {
+            ...placeClip(added.song, added.track, newClip(take, startBeat, buffer.duration)),
+            takes: { ...timed.takes, [take]: { asset, seconds: buffer.duration, made: 'imported', words: name } },
+          };
+        });
+      } catch (error) {
+        fail(error);
+      }
+    }
+  };
+
+  const retry = async (id: string) => {
+    const found = songRef.current ? clipOf(songRef.current, id) : undefined;
+    if (!found?.ask) return;
+    const pendings = await submit(found.ask, id);
+    if (pendings.length === 0) return;
+    await change((s) => ({
+      ...withClip(s, id, (c) => ({ ...c, expected: pendings.length, failure: undefined })),
+      pending: [...s.pending, ...pendings],
+    }));
+  };
+
+  const keepSnippet = async (clipId: string) => {
+    const current = songRef.current;
+    const clip = current && clipOf(current, clipId);
+    const take = clip && current.takes[clip.take];
+    if (!current || !clip || !take) return;
+    const snippet: Snippet = {
+      id: newId(),
+      name: take.words || current.title,
+      asset: take.asset,
+      seconds: take.seconds,
+      offset: clip.offset,
+      length: clip.length,
+      tempo: current.tempo,
+      key: current.key,
+    };
+    try {
+      await saveSnippet(snippet);
+      setSnippets(await listSnippets());
+      setPanel(true);
+    } catch (error) {
+      fail(error);
+    }
+  };
+
+  const dropSnippet = (id: string, track: string | null, beat: number) => {
+    const snippet = snippets.find((s) => s.id === id);
+    if (!snippet) return;
+    void edit((s) => {
+      const take = newId();
+      const target = track ? { song: s, track } : addTrack(s, snippet.name);
+      return {
+        ...placeClip(target.song, target.track, newClip(take, beat, snippet.length, snippet.offset)),
+        takes: { ...s.takes, [take]: { asset: snippet.asset, seconds: snippet.seconds, made: 'imported', words: snippet.name } },
+      };
+    });
+  };
+
+  const removeSnippet = async (snippet: Snippet) => {
+    try {
+      await deleteSnippet(snippet.id);
+      setSnippets(await listSnippets());
+      await forget([snippet.asset], null, 'Delete snippet');
+    } catch (error) {
+      fail(error);
+    }
+  };
+
+  const renameSnippet = (snippet: Snippet, name: string) => {
+    const renamed = { ...snippet, name };
+    setSnippets((all) => all.map((s) => (s.id === snippet.id ? renamed : s)));
+    void saveSnippet(renamed).catch(fail);
+  };
+
+  const preview = (snippet: Snippet) => {
+    if (previewing === snippet.id) {
+      engine.current!.stopPreview();
+      setPreviewing(null);
+      return;
+    }
+    setPreviewing(snippet.id);
+    void engine.current!
+      .preview(snippet.asset, snippet.offset, snippet.length, () => setPreviewing((now) => (now === snippet.id ? null : now)))
+      .catch(fail);
+  };
+
+  const keepVersion = async (name: string) => {
+    const current = songRef.current;
+    if (!current) return;
+    try {
+      await saveVersion(current, newId(), name);
+      setVersions(await listVersions(current.id));
+      setNotice({ text: 'Version saved.' });
+    } catch (error) {
+      fail(error);
+    }
+  };
+
+  const restoreVersion = async (version: VersionRow) => {
+    try {
+      const snapshot = await loadVersion(version.id);
+      if (snapshot) await edit((s) => ({ ...restore(snapshot, s), id: s.id }));
+    } catch (error) {
+      fail(error);
+    }
   };
 
   const exportSong = async () => {
@@ -297,51 +547,11 @@ export function Studio() {
     void engine.current!.seek(current, seconds, ended).catch(fail);
   };
 
-  /** Puts each file on a track of its own, at the bar of the playhead. */
-  const importFiles = async (files: File[]) => {
-    for (const file of files) {
-      try {
-        const mediaType = file.type || mediaTypeOf(file.name);
-        if (!mediaType) throw new Error(`${file.name} is no sound file this app reads.`);
-        const asset = await upload(file.name, mediaType, file);
-        const buffer = await engine.current!.buffer(asset);
-        await change((s) => {
-          const take = newId();
-          const bar = secondsPerBeat(s) * s.beatsPerBar;
-          const startBeat = Math.floor(engine.current!.position() / bar) * s.beatsPerBar;
-          const clip: Clip = { id: newId(), take, versions: [], expected: 0, startBeat, offset: 0, length: buffer.duration };
-          const name = file.name.replace(/\.[^.]+$/, '');
-          const track = { ...newTrack(s, name), clips: [clip] };
-          return {
-            ...s,
-            tracks: [...s.tracks, track],
-            takes: { ...s.takes, [take]: { asset, seconds: buffer.duration, made: 'imported', words: name } },
-          };
-        });
-      } catch (error) {
-        fail(error);
-      }
-    }
-  };
-
-  const retry = async (id: string) => {
-    const found = songRef.current?.tracks.flatMap((t) => t.clips).find((c) => c.id === id);
-    if (!found?.ask) return;
-    const pendings = await submit(found.ask, id);
-    if (pendings.length === 0) return;
-    await change((s) => ({
-      ...withClip(s, id, (c) => ({ ...c, expected: pendings.length, failure: undefined })),
-      pending: [...s.pending, ...pendings],
-    }));
-  };
-
-  const removeClip = (id: string) =>
-    change((s) => ({ ...s, tracks: s.tracks.map((t) => ({ ...t, clips: t.clips.filter((c) => c.id !== id) })) }));
-
   if (!loaded) return null;
 
   const playTip = tips('play', 'Space');
   const exportTip = tips('export', song && songSeconds(song) > 0 ? undefined : 'Make some music first.');
+  const locale = navigator.language;
 
   return (
     <div className="ms-studio">
@@ -376,7 +586,7 @@ export function Studio() {
           if (song && event.dataTransfer.types.includes('Files')) event.preventDefault();
         }}
         onDrop={(event) => {
-          if (!song) return;
+          if (!song || event.dataTransfer.files.length === 0) return;
           event.preventDefault();
           void importFiles([...event.dataTransfer.files]);
         }}
@@ -409,7 +619,7 @@ export function Studio() {
                   onChange={(event) => {
                     const value = Number(event.target.value);
                     const tempo = event.target.value === '' || !Number.isFinite(value) ? null : Math.min(240, Math.max(40, value));
-                    void change((s) => ({ ...s, tempo }));
+                    void edit((s) => ({ ...s, tempo }));
                   }}
                 />
                 <span className="ms-dim">BPM</span>
@@ -419,10 +629,16 @@ export function Studio() {
                 placeholder="Key"
                 value={song.key ?? ''}
                 options={[{ value: '', label: 'Any key' }, ...KEYS.map((k) => ({ value: k, label: k }))]}
-                onPick={(key) => void change((s) => ({ ...s, key: key || null }))}
+                onPick={(key) => void edit((s) => ({ ...s, key: key || null }))}
                 menuHeight={320}
               />
               <div className="ms-grow" />
+              <IconButton aria-label="Undo" disabled={past.current.length === 0} onClick={() => void undo()}>
+                <Icon name="arrow-go-back-line" size={16} />
+              </IconButton>
+              <IconButton aria-label="Redo" disabled={future.current.length === 0} onClick={() => void redo()}>
+                <Icon name="arrow-go-forward-line" size={16} />
+              </IconButton>
               <IconButton aria-label="Back to the start" onClick={() => seek(0)}>
                 <Icon name="skip-back-line" size={16} />
               </IconButton>
@@ -433,6 +649,12 @@ export function Studio() {
                 {playTip.tip}
               </span>
               <span className="ms-mono ms-clock">{clock(position)}</span>
+              <IconButton aria-label="Zoom out" disabled={zoom === 0} onClick={() => setZoom((z) => Math.max(0, z - 1))}>
+                <Icon name="zoom-out-line" size={16} />
+              </IconButton>
+              <IconButton aria-label="Zoom in" disabled={zoom === ZOOMS.length - 1} onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))}>
+                <Icon name="zoom-in-line" size={16} />
+              </IconButton>
               <Button variant="secondary" icon={<Icon name="upload-2-line" size={14} />} onClick={() => picker.current?.click()}>
                 Import
               </Button>
@@ -448,6 +670,13 @@ export function Studio() {
                   void importFiles(files);
                 }}
               />
+              <Versions
+                versions={versions}
+                locale={locale}
+                onOpen={() => void listVersions(song.id).then(setVersions, fail)}
+                onSave={(name) => void keepVersion(name)}
+                onRestore={(version) => void restoreVersion(version)}
+              />
               <span className="hs-tipwrap" {...exportTip.hover}>
                 <Button
                   variant="secondary"
@@ -459,38 +688,59 @@ export function Studio() {
                 </Button>
                 {exportTip.tip}
               </span>
+              <IconButton aria-label={panel ? 'Hide snippets' : 'Show snippets'} onClick={() => setPanel((p) => !p)}>
+                <Icon name="bookmark-line" size={16} />
+              </IconButton>
             </>
           )}
         </header>
         {song ? (
-          <>
-            {song.tracks.length > 0 ? (
-              <Timeline
-                song={song}
-                engine={engine.current}
-                position={position}
-                jobs={jobs}
-                onSeek={seek}
-                onVersion={(clip, take) => void change((s) => withClip(s, clip, (c) => ({ ...c, take, length: s.takes[take]!.seconds, offset: 0 })))}
-                onKeep={(clip) => void change((s) => withClip(s, clip, (c) => ({ ...c, versions: [], expected: 0 })))}
-                onRemove={(clip) => void removeClip(clip)}
-                onRetry={(clip) => void retry(clip)}
+          <div className="ms-body">
+            <div className="ms-work">
+              {song.tracks.length > 0 ? (
+                <Timeline
+                  song={song}
+                  engine={engine.current}
+                  position={position}
+                  pixelsPerSecond={ZOOMS[zoom]!}
+                  jobs={jobs}
+                  selected={selected}
+                  onSelect={setSelected}
+                  onSeek={seek}
+                  onEdit={(update) => void edit(update)}
+                  onKeep={(clip) => void edit((s) => withClip(s, clip, (c) => ({ ...c, versions: [], expected: 0 })))}
+                  onRetry={(clip) => void retry(clip)}
+                  onSnippet={(clip) => void keepSnippet(clip)}
+                  onDropSnippet={dropSnippet}
+                />
+              ) : (
+                <div className="ms-empty">
+                  <EmptyState icon={<Icon name="music-ai-line" size={30} />} title="Describe a song to make it" />
+                </div>
+              )}
+              <MakePanel
+                models={models}
+                picked={picked}
+                onPick={(card) => {
+                  localStorage.setItem('music-model', card);
+                  setPicked(card);
+                }}
+                onMake={(request) => void make(request)}
               />
-            ) : (
-              <div className="ms-empty">
-                <EmptyState icon={<Icon name="music-ai-line" size={30} />} title="Describe a song to make it" />
-              </div>
+            </div>
+            {panel && (
+              <aside className="ms-panel">
+                <div className="ms-panel-head ms-strong">Snippets</div>
+                <Snippets
+                  snippets={snippets}
+                  previewing={previewing}
+                  onPreview={preview}
+                  onRename={renameSnippet}
+                  onDelete={(snippet) => void removeSnippet(snippet)}
+                />
+              </aside>
             )}
-            <MakePanel
-              models={models}
-              picked={picked}
-              onPick={(card) => {
-                localStorage.setItem('music-model', card);
-                setPicked(card);
-              }}
-              onMake={(request) => void make(request)}
-            />
-          </>
+          </div>
         ) : (
           <div className="ms-empty">
             <EmptyState icon={<Icon name="music-2-line" size={30} />} title="No song yet">

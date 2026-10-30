@@ -4,7 +4,7 @@
  * export renders the same graph in an OfflineAudioContext.
  */
 import { assetUrl } from './bridge';
-import { clipStart, songSeconds, type Song, type Track } from './song';
+import { clipSeconds, clipStart, songSeconds, type Song, type Track } from './song';
 
 export const RATE = 48_000;
 
@@ -48,16 +48,45 @@ function schedule(
       const buffer = take && buffers.get(take.asset);
       if (!buffer) continue;
       const start = clipStart(song, clip);
-      if (start + clip.length <= from) continue;
-      const skip = Math.max(0, from - start);
-      const source = context.createBufferSource();
-      source.buffer = buffer;
-      source.connect(gain);
-      source.start(at + Math.max(0, start - from), clip.offset + skip, clip.length - skip);
-      sources.push(source);
+      const total = clipSeconds(clip);
+      if (start + total <= from) continue;
+      const envelope = context.createGain();
+      envelope.connect(gain);
+      fade(envelope.gain, at, from, start, total, clip.fadeIn, clip.fadeOut);
+      for (let pass = 0; pass < clip.loops; pass++) {
+        const passStart = start + pass * clip.length;
+        if (passStart + clip.length <= from) continue;
+        const skip = Math.max(0, from - passStart);
+        const source = context.createBufferSource();
+        source.buffer = buffer;
+        source.connect(envelope);
+        source.start(at + Math.max(0, passStart - from), clip.offset + skip, clip.length - skip);
+        sources.push(source);
+      }
     }
   }
   return sources;
+}
+
+/** Shapes a clip's gain from where playback starts: up over the fade in, down over the fade out. */
+function fade(param: AudioParam, at: number, from: number, start: number, total: number, fadeIn: number, fadeOut: number): void {
+  const level = (t: number) => {
+    let gain = 1;
+    if (fadeIn > 0) gain = Math.min(gain, (t - start) / fadeIn);
+    if (fadeOut > 0) gain = Math.min(gain, (start + total - t) / fadeOut);
+    return Math.max(0, Math.min(1, gain));
+  };
+  const time = (t: number) => at + Math.max(0, t - from);
+  const now = Math.max(from, start);
+  param.setValueAtTime(level(now), time(now));
+  const fullFrom = start + fadeIn;
+  const fullTo = start + total - fadeOut;
+  if (fadeIn > 0 && fullFrom > now) param.linearRampToValueAtTime(level(Math.min(fullFrom, fullTo)), time(Math.min(fullFrom, fullTo)));
+  if (fadeOut > 0) {
+    const down = Math.max(now, fullTo);
+    param.setValueAtTime(level(down), time(down));
+    param.linearRampToValueAtTime(0, time(start + total));
+  }
 }
 
 function heardAssets(song: Song): string[] {
@@ -78,7 +107,8 @@ export class Engine {
   private endTimer = 0;
   private startedAt = 0;
   private from = 0;
-  private playing = false;
+  /** The song the engine plays now, as it was when playback started; null while stopped. */
+  playing: Song | null = null;
 
   /** The decoded audio of an asset, read once and kept. */
   buffer(asset: string): Promise<AudioBuffer> {
@@ -101,17 +131,17 @@ export class Engine {
   }
 
   get isPlaying(): boolean {
-    return this.playing;
+    return this.playing !== null;
   }
 
   /** Where playback is in the song, in seconds. */
   position(): number {
-    return this.playing ? this.from + Math.max(0, this.context.currentTime - this.startedAt) : this.from;
+    return this.playing !== null ? this.from + Math.max(0, this.context.currentTime - this.startedAt) : this.from;
   }
 
   /** Moves the playhead; a running playback goes on from there. */
   async seek(song: Song, seconds: number, onEnd: () => void): Promise<void> {
-    if (this.playing) await this.play(song, seconds, onEnd);
+    if (this.playing !== null) await this.play(song, seconds, onEnd);
     else this.from = seconds;
   }
 
@@ -123,7 +153,7 @@ export class Engine {
     this.from = from;
     this.startedAt = this.context.currentTime + LEAD;
     this.sources = schedule(this.context, this.context.destination, song, from, this.startedAt, buffers);
-    this.playing = true;
+    this.playing = song;
     const remaining = songSeconds(song) - from;
     this.endTimer = window.setTimeout(() => {
       this.halt();
@@ -138,6 +168,29 @@ export class Engine {
     this.from = at;
   }
 
+  private sample: AudioBufferSourceNode | null = null;
+
+  /** Plays a stretch of one asset alone, beside the song; `onEnd` hears its end. */
+  async preview(asset: string, offset: number, length: number, onEnd: () => void): Promise<void> {
+    this.stopPreview();
+    await this.context.resume();
+    const source = this.context.createBufferSource();
+    source.buffer = await this.buffer(asset);
+    source.connect(this.context.destination);
+    source.onended = () => {
+      if (this.sample === source) this.sample = null;
+      onEnd();
+    };
+    source.start(this.context.currentTime + LEAD, offset, length);
+    this.sample = source;
+  }
+
+  stopPreview(): void {
+    if (!this.sample) return;
+    this.sample.stop();
+    this.sample = null;
+  }
+
   private halt(): void {
     window.clearTimeout(this.endTimer);
     for (const source of this.sources) {
@@ -146,7 +199,7 @@ export class Engine {
       source.disconnect();
     }
     this.sources = [];
-    this.playing = false;
+    this.playing = null;
   }
 
   /** The whole song mixed down to stereo at the engine's rate. */

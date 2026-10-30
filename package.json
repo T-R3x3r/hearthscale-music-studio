@@ -11,7 +11,8 @@
   "dependencies": {
     "@hearthscale/app-ui": "file:C:/Users/Bebob/hs-verify/builder-kit/sdk/hearthscale-app-ui-0.1.0.tgz",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "web-audio-beat-detector": "^8.2.39"
   },
   "devDependencies": {
     "@hearthscale/app": "file:C:/Users/Bebob/hs-verify/builder-kit/sdk/hearthscale-app-0.1.0.tgz",
