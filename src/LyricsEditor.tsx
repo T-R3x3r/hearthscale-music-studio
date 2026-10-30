@@ -47,40 +47,42 @@ export function LyricsEditor({ about, sections, onChange }: Props) {
   return (
     <div className="ms-lyrics">
       <Label>Lyrics</Label>
-      {shown.map((section) => (
-        <div key={section.id} className="ms-lyric">
-          <div className="ms-lyric-head">
-            <SettingsSelect
-              label="Section"
-              value={section.name}
-              options={SECTIONS.map((name) => ({ value: name, label: name }))}
-              onPick={(name: SectionName) => set(section.id, { name })}
-            />
-            <div className="hs-flex-spacer" />
-            <TipIconButton
-              size="sm"
-              aria-label="Rewrite"
-              disabled={busy !== null || !section.text.trim()}
-              onClick={() => void run(section.id, async () => set(section.id, { text: await rewriteSection(about, section, shown) }))}
-            >
-              <Icon name={busy === section.id ? 'loader-4-line' : 'refresh-line'} size={14} className={busy === section.id ? 'hs-spin' : undefined} />
-            </TipIconButton>
-            {sections.length > 0 && (
-              <TipIconButton size="sm" aria-label="Remove section" onClick={() => onChange(sections.filter((s) => s.id !== section.id))}>
-                <Icon name="close-line" size={14} />
+      <div className="ms-lyric-list">
+        {shown.map((section) => (
+          <div key={section.id} className="ms-lyric">
+            <div className="ms-lyric-head">
+              <SettingsSelect
+                label="Section"
+                value={section.name}
+                options={SECTIONS.map((name) => ({ value: name, label: name }))}
+                onPick={(name: SectionName) => set(section.id, { name })}
+              />
+              <div className="hs-flex-spacer" />
+              <TipIconButton
+                size="sm"
+                aria-label="Rewrite"
+                disabled={busy !== null || !section.text.trim()}
+                onClick={() => void run(section.id, async () => set(section.id, { text: await rewriteSection(about, section, shown) }))}
+              >
+                <Icon name={busy === section.id ? 'loader-4-line' : 'refresh-line'} size={14} className={busy === section.id ? 'hs-spin' : undefined} />
               </TipIconButton>
-            )}
+              {sections.length > 0 && (
+                <TipIconButton size="sm" aria-label="Remove section" onClick={() => onChange(sections.filter((s) => s.id !== section.id))}>
+                  <Icon name="close-line" size={14} />
+                </TipIconButton>
+              )}
+            </div>
+            <textarea
+              className="ms-words hs-ta"
+              aria-label={`${section.name} lyrics`}
+              placeholder={EXAMPLES[section.name]}
+              rows={Math.max(2, section.text.split('\n').length)}
+              value={section.text}
+              onChange={(event) => set(section.id, { text: event.target.value })}
+            />
           </div>
-          <textarea
-            className="ms-words hs-ta"
-            aria-label={`${section.name} lyrics`}
-            placeholder={EXAMPLES[section.name]}
-            rows={Math.max(2, section.text.split('\n').length)}
-            value={section.text}
-            onChange={(event) => set(section.id, { text: event.target.value })}
-          />
-        </div>
-      ))}
+        ))}
+      </div>
       {failure && <Notice>{failure}</Notice>}
       <div className="ms-make-row">
         <span className="hs-tipwrap" {...write.hover}>

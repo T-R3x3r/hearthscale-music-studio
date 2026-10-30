@@ -611,11 +611,15 @@ body {
   line-height: var(--lh-body);
 }
 
-.ms-lyrics {
+.ms-lyrics,
+.ms-lyric-list {
   display: flex;
   flex-direction: column;
   gap: var(--gap-stack);
-  max-height: calc(var(--space) * 90);
+}
+
+.ms-lyric-list {
+  max-height: calc(var(--space) * 30);
   overflow-y: auto;
 }
 
