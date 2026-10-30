@@ -531,7 +531,7 @@ body {
   gap: var(--gap-inline);
   box-sizing: content-box;
   height: var(--icon-ctl-sm);
-  padding: var(--space) calc(var(--space) * 6) var(--space) calc(var(--space) * 1.5);
+  padding: var(--space) calc(var(--space) * 6 + var(--gap-inline)) var(--space) calc(var(--space) * 1.5);
 }
 
 .ms-clip-name {
