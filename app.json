@@ -397,11 +397,12 @@
     "cards": [
       {
         "title": "Songs from a few words.",
-        "text": "Music studio makes music from a description, on this computer, and lets you shape it on tracks.",
+        "image": "assets/intro-studio.webp",
+        "text": "Describe a song, and Music studio makes it.",
         "download": "audio-cpp/stable-audio-3-small-music"
       },
       {
-        "title": "Make a song, then change it.",
+        "title": "Shape every part.",
         "rows": [
           {
             "icon": "music",
@@ -435,13 +436,13 @@
           },
           {
             "icon": "agent",
-            "title": "Assistant",
-            "text": "Choose Ask and say what to change."
+            "title": "Ask",
+            "text": "Say what to change, and it changes the song."
           }
         ]
       },
       {
-        "title": "Good for any video, podcast or game.",
+        "title": "Music that fits.",
         "rows": [
           {
             "icon": "camera",
