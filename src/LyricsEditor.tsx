@@ -14,7 +14,7 @@ export function LyricsEditor({ about, sections, onChange }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const tips = useFloatingTips('top');
-  const write = tips('write', about.trim() ? undefined : 'Describe the song first.');
+  const write = tips('write', about.trim() ? undefined : 'Describe the song first');
 
   const run = async (key: string, work: () => Promise<void>) => {
     setBusy(key);

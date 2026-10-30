@@ -56,8 +56,8 @@ export function MakePanel({ models, card, onPick, onMake, lyrics, onLyrics }: Pr
   const flip = (style: string) =>
     setStyles((now) => (now.includes(style) ? now.filter((s) => s !== style) : [...now, style]));
 
-  const blocked = schema === null ? 'This model cannot make music from a description.' : undefined;
-  const make = tips('make', ready ? undefined : blocked ?? 'Describe the music first.');
+  const blocked = schema === null ? 'This model cannot make music from a description' : undefined;
+  const make = tips('make', ready ? undefined : blocked ?? 'Describe the music first');
 
   return (
     <div className="ms-make">

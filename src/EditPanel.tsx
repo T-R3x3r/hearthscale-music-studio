@@ -45,7 +45,7 @@ export function EditPanel({ kind, clip, words: start, bars, longest, onGo, onClo
   const tips = useFloatingTips('top');
   const { title, icon } = EDITS[kind];
   const missing = kind === 'repaint' && 'missing' in bars ? bars.missing : undefined;
-  const blocked = missing ?? (words.trim() ? undefined : 'Describe the music first.');
+  const blocked = missing ?? (words.trim() ? undefined : 'Describe the music first');
   const go = tips('go', blocked);
   return (
     <div className="ms-make">

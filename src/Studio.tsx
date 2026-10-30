@@ -913,7 +913,10 @@ export function Studio() {
   }
 
   const playTip = tips('play', 'Space');
-  const exportTip = tips('export', song && songSeconds(song) > 0 ? undefined : 'Make some music first.');
+  const exportTip = tips('export', song && songSeconds(song) > 0 ? undefined : 'Make some music first');
+  const metronomeTip = tips('metronome', 'Clicks the beat while you play and record');
+  const tempoTip = tips('tempo', 'Beats per minute');
+  const louderTip = tips('louder', 'Makes the whole song louder and more even');
   const locale = navigator.language;
 
   return (
@@ -1019,7 +1022,7 @@ export function Studio() {
                     <>
                       <MItem
                         icon={<Icon name="upload-2-line" size={14} />}
-                        label="Import"
+                        label="Import audio"
                         onClick={() => {
                           setExportMenu(null);
                           picker.current?.click();
@@ -1030,7 +1033,7 @@ export function Studio() {
                   )}
                   <MItem
                     icon={<Icon name="music-2-line" size={14} />}
-                    label="Export the song"
+                    label="Export song"
                     disabled={songSeconds(song) === 0}
                     onClick={() => {
                       setExportMenu(null);
@@ -1039,7 +1042,7 @@ export function Studio() {
                   />
                   <MItem
                     icon={<Icon name="folder-music-line" size={14} />}
-                    label="Export each track into a folder"
+                    label="Export tracks to a folder"
                     disabled={songSeconds(song) === 0}
                     onClick={() => {
                       setExportMenu(null);
@@ -1069,7 +1072,7 @@ export function Studio() {
       {song && (
         <div className="ms-transport">
           <div className="ms-group">
-            <IconButton aria-label="Back to the start" onClick={() => seek(0)}>
+            <IconButton aria-label="Go to start" onClick={() => seek(0)}>
               <Icon name="skip-back-line" size={16} />
             </IconButton>
             <span className="hs-tipwrap" {...playTip.hover}>
@@ -1085,25 +1088,28 @@ export function Studio() {
             >
               {recordingNow ? 'Stop recording' : 'Record'}
             </Button>
-            <IconButton
-              className="ms-switch-button"
-              aria-label="Metronome"
-              aria-pressed={metronome}
-              onClick={() => {
-                localStorage.setItem('music-metronome', metronome ? 'off' : 'on');
-                setMetronome(!metronome);
-              }}
-            >
-              <Icon name="timer-flash-line" size={16} />
-            </IconButton>
+            <span className="hs-tipwrap" {...metronomeTip.hover}>
+              <IconButton
+                className="ms-switch-button"
+                aria-label="Metronome"
+                aria-pressed={metronome}
+                onClick={() => {
+                  localStorage.setItem('music-metronome', metronome ? 'off' : 'on');
+                  setMetronome(!metronome);
+                }}
+              >
+                <Icon name="timer-flash-line" size={16} />
+              </IconButton>
+              {metronomeTip.tip}
+            </span>
           </div>
           <span className="ms-num ms-clock">{clock(position)}</span>
           <div className="ms-group">
-            <div className="ms-tempo">
+            <div className="ms-tempo hs-tipwrap" {...tempoTip.hover}>
               <TextInput
                 variant="number"
                 aria-label="Tempo"
-                placeholder="Tempo"
+                placeholder="120"
                 min={40}
                 max={240}
                 value={song.tempo ?? ''}
@@ -1114,6 +1120,7 @@ export function Studio() {
                 }}
               />
               <span className="ms-dim">BPM</span>
+              {tempoTip.tip}
             </div>
             <SettingsSelect
               label="Key"
@@ -1124,14 +1131,17 @@ export function Studio() {
               menuHeight={320}
             />
           </div>
-          <IconButton
-            className="ms-switch-button"
-            aria-label="Louder"
-            aria-pressed={song.louder}
-            onClick={() => void edit((s) => ({ ...s, louder: !s.louder }))}
-          >
-            <Icon name="volume-up-line" size={16} />
-          </IconButton>
+          <span className="hs-tipwrap" {...louderTip.hover}>
+            <IconButton
+              className="ms-switch-button"
+              aria-label="Louder"
+              aria-pressed={song.louder}
+              onClick={() => void edit((s) => ({ ...s, louder: !s.louder }))}
+            >
+              <Icon name="volume-up-line" size={16} />
+            </IconButton>
+            {louderTip.tip}
+          </span>
           <div className="hs-flex-spacer" />
           <div className="ms-group">
             <IconButton aria-label="Zoom out" disabled={zoom === 0} onClick={() => setZoom((z) => Math.max(0, z - 1))}>
@@ -1287,7 +1297,7 @@ function barsOf(song: Song, clip: Clip, range: Range | null): { label: string } 
   const start = clipStart(song, clip);
   const from = range ? Math.max(range.from, start) : 0;
   const to = range ? Math.min(range.to, start + clip.length) : 0;
-  if (!range || to <= from) return { missing: 'Drag across the bar numbers to choose the bars.' };
+  if (!range || to <= from) return { missing: 'Drag across the bar numbers to choose the bars' };
   const bar = secondsPerBeat(song) * song.beatsPerBar;
   const first = Math.floor(from / bar) + 1;
   const last = Math.max(first, Math.ceil(to / bar));

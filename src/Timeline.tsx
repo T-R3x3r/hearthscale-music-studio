@@ -239,6 +239,9 @@ export function Timeline(props: Props) {
 }
 
 function TrackHead({ track, onEdit }: { track: Track; onEdit: (edit: Edit) => void }) {
+  const tips = useFloatingTips('top');
+  const muteTip = tips('mute', 'Mute this track');
+  const soloTip = tips('solo', 'Hear only this track');
   const [menu, setMenu] = useState<MenuAnchor | null>(null);
   const set = (change: Partial<Omit<Track, 'id' | 'clips'>>) => onEdit((s) => changeTrack(s, track.id, change));
   return (
@@ -256,12 +259,18 @@ function TrackHead({ track, onEdit }: { track: Track; onEdit: (edit: Edit) => vo
         </IconButton>
       </div>
       <div className="ms-lane-controls">
-        <IconButton className="ms-switch-button ms-letter" aria-pressed={track.muted} aria-label="Mute" onClick={() => set({ muted: !track.muted })}>
-          M
-        </IconButton>
-        <IconButton className="ms-switch-button ms-letter" aria-pressed={track.solo} aria-label="Solo" onClick={() => set({ solo: !track.solo })}>
-          S
-        </IconButton>
+        <span className="hs-tipwrap" {...muteTip.hover}>
+          <IconButton className="ms-switch-button ms-letter" aria-pressed={track.muted} aria-label="Mute" onClick={() => set({ muted: !track.muted })}>
+            M
+          </IconButton>
+          {muteTip.tip}
+        </span>
+        <span className="hs-tipwrap" {...soloTip.hover}>
+          <IconButton className="ms-switch-button ms-letter" aria-pressed={track.solo} aria-label="Solo" onClick={() => set({ solo: !track.solo })}>
+            S
+          </IconButton>
+          {soloTip.tip}
+        </span>
         <div className="ms-lane-volume">
           <Slider label="Volume" min={0} max={1.5} step={0.05} value={track.volume} onChange={(volume) => set({ volume })} />
         </div>
@@ -347,6 +356,7 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
 
   const index = clip.versions.indexOf(clip.take);
   const takes = tips('takes', 'Takes the music model made. Keep the one you like.');
+  const loopTip = tips('loop', 'Drag to repeat the clip');
   const total = Math.max(clip.versions.length, clip.expected);
   const step = (by: number) => {
     const next = clip.versions[(index + by + clip.versions.length) % clip.versions.length];
@@ -425,8 +435,9 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
       </div>
       {clip.loops === 1 && <span className="ms-grip ms-grip-start" onPointerDown={(event) => onPress(event, clip.id, 'start')} />}
       {clip.loops === 1 && <span className="ms-grip ms-grip-end" onPointerDown={(event) => onPress(event, clip.id, 'end')} />}
-      <span className="ms-grip ms-grip-loop" aria-label="Loop" onPointerDown={(event) => onPress(event, clip.id, 'loop')}>
+      <span className="ms-grip ms-grip-loop" aria-label="Loop" onPointerDown={(event) => onPress(event, clip.id, 'loop')} {...loopTip.hover}>
         <Icon name="repeat-2-line" size={12} />
+        {loopTip.tip}
       </span>
       {menu && (
         <MenuSurface anchor={menu} onDismiss={() => setMenu(null)}>

@@ -12,7 +12,7 @@ interface Props {
 
 export function Snippets({ snippets, previewing, onPreview, onRename, onDelete }: Props) {
   const tips = useFloatingTips('bottom-start');
-  const empty = tips('empty', 'Save a clip as a snippet from its menu, then drag it onto a track.');
+  const empty = tips('empty', 'Save a clip as a snippet from its menu, then drag it onto a track');
   return (
     <div className="ms-snippets">
       {snippets.length === 0 && (
