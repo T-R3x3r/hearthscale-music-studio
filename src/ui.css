@@ -145,10 +145,6 @@ body {
   font-size: var(--fs-sm);
 }
 
-.ms-quiet {
-  color: var(--mut);
-}
-
 .ms-strong {
   font-weight: var(--fw-semi);
 }

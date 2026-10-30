@@ -1272,6 +1272,8 @@ export function Studio() {
                 onPreview={preview}
                 onRename={renameSnippet}
                 onDelete={(snippet) => void removeSnippet(snippet)}
+                picked={selected !== null}
+                onSavePicked={() => selected && void keepSnippet(selected)}
               />
             )}
           </aside>

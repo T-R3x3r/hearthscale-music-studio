@@ -1,4 +1,4 @@
-import { Icon, IconButton, useFloatingTips } from '@hearthscale/app-ui';
+import { Button, EmptyState, Icon, IconButton, useFloatingTips } from '@hearthscale/app-ui';
 import type { Snippet } from './library';
 import { SNIPPET_DRAG } from './Timeline';
 
@@ -8,18 +8,25 @@ interface Props {
   onPreview: (snippet: Snippet) => void;
   onRename: (snippet: Snippet, name: string) => void;
   onDelete: (snippet: Snippet) => void;
+  /** Whether a clip is picked, which an empty list offers to save. */
+  picked: boolean;
+  onSavePicked: () => void;
 }
 
-export function Snippets({ snippets, previewing, onPreview, onRename, onDelete }: Props) {
+export function Snippets({ snippets, previewing, onPreview, onRename, onDelete, picked, onSavePicked }: Props) {
   const tips = useFloatingTips('bottom-start');
-  const empty = tips('empty', 'Save a clip as a snippet from its menu, then drag it onto a track');
+  const save = tips('save', picked ? undefined : 'Pick a clip first');
   return (
     <div className="ms-snippets">
       {snippets.length === 0 && (
-        <div className="ms-quiet hs-tipwrap" {...empty.hover}>
-          No snippets yet
-          {empty.tip}
-        </div>
+        <EmptyState icon={<Icon name="bookmark-line" size={30} />} title="No snippets yet">
+          <span className="hs-tipwrap" {...save.hover}>
+            <Button variant="secondary" icon={<Icon name="bookmark-line" size={14} />} disabled={!picked} onClick={onSavePicked}>
+              Save picked clip
+            </Button>
+            {save.tip}
+          </span>
+        </EmptyState>
       )}
       {snippets.map((snippet) => (
         <div
