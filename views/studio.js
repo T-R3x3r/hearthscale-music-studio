@@ -555,6 +555,9 @@ body {
   display: flex;
   align-items: center;
   gap: var(--gap-inline);
+  padding-left: calc(var(--space) * 3);
+  background: linear-gradient(var(--swatch-tint), var(--swatch-tint)), var(--win);
+  mask-image: linear-gradient(to right, transparent, var(--text) calc(var(--space) * 2));
 }
 
 .ms-versions {
