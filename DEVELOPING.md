@@ -1,0 +1,60 @@
+# Developing Music studio
+
+`README.md` is the text the Marketplace shows to the people who install the
+app. This file is for the people who work on it.
+
+Music studio is an ordinary Hearthscale app: one view, `studio`, in the rail
+and in tabs, and a backend with one tool. Everything it knows of the
+platform comes from the developer documentation and the SDK.
+
+## Build
+
+```sh
+npm install
+npm run check   # TypeScript
+npm run build   # writes views/studio.js
+```
+
+The view is React under `src/`, bundled by `build.mjs` into
+`views/studio.js`, the one file the package carries for it. Commit the built
+file with every change to the source. `backend.ts` is bundled by
+`hearthscale dev` and `hearthscale pack`.
+
+The SDK packages come from the pre-release builder kit as files
+(`package.json` names their paths). Point them at the npm releases once
+those carry the same version.
+
+## Run
+
+With a development Hearthscale running:
+
+```sh
+hearthscale dev .
+```
+
+Close and open the app's tab again after `npm run build` to load the view.
+
+## How it works
+
+- **Songs** live in the app's SQLite database (`db` in `uses`), one row per
+  song with its document as JSON (`src/library.ts`, `src/song.ts`). A clip's
+  place is in beats, so a change of tempo moves it with the song.
+- **Audio** is assets of the app: the outputs of music jobs and the files
+  the person imports (`hearthscale/ui/upload-file`). The view streams them
+  from `hearthscale/assetBytes` and decodes them in one `AudioContext` at
+  48 kHz (`src/audio.ts`). Every clip is scheduled on that context's clock
+  when playback starts, so tracks never drift. The export renders the same
+  graph in an `OfflineAudioContext` and saves a 16-bit WAV with
+  `ui/download-file`.
+- **Music jobs** run from the view (`hearthscale/jobs/*`). The app reads
+  each music model's input schema from its card (`src/music.ts`) and sends
+  only the fields that schema lists. Each version is one job with its own
+  seed, where the model takes one. The jobs under way are kept with the song,
+  so a view that opens again follows them (`src/jobs.ts`).
+- **Deleting** a song releases its audio through the backend tool
+  `forget_audio`, which only the app's views call.
+- **Settings**: `versions`, how many versions each AI action makes (1 to 4).
+
+## Licence
+
+MIT. See `LICENSE`.

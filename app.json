@@ -1,0 +1,56 @@
+{
+  "$schema": "https://hearthscale.com/app.schema.json",
+  "id": "music-studio",
+  "name": "Music studio",
+  "version": "0.1.0",
+  "api": 6,
+  "description": "Make songs from words, then cut, loop and mix them on tracks. The music runs on the music models of your own computer.",
+  "icon": { "light": "assets/icon-light.svg", "dark": "assets/icon-dark.svg" },
+  "license": "MIT",
+  "categories": ["audio"],
+  "payment": "free",
+  "environment": { "kind": "process" },
+  "uses": ["db", "jobs", "models"],
+  "models": { "music": { "required": false } },
+  "settings": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "versions": {
+          "type": "integer",
+          "title": "Versions per action",
+          "description": "How many versions each AI action makes. More versions give a choice, and each one adds to the wait.",
+          "minimum": 1,
+          "maximum": 4,
+          "default": 1
+        }
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "forget_audio",
+      "title": "Delete audio",
+      "description": "Deletes audio the app no longer uses.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "assets": { "type": "array", "items": { "type": "string" }, "description": "The ids of the audio assets to delete." }
+        },
+        "required": ["assets"]
+      },
+      "mutating": true,
+      "outbound": false,
+      "visibility": ["app"]
+    }
+  ],
+  "surfaces": [
+    {
+      "id": "studio",
+      "kind": "view",
+      "title": "Music studio",
+      "entry": "views/studio.js",
+      "placements": ["rail", "tab"]
+    }
+  ]
+}
