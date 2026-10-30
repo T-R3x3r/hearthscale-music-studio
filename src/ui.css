@@ -614,7 +614,7 @@ body {
 .ms-lyric {
   display: flex;
   flex-direction: column;
-  gap: var(--gap-label);
+  gap: var(--gap-stack);
 }
 
 .ms-lyric-head {

@@ -1,8 +1,18 @@
 import { useState } from 'react';
-import { Button, Icon, Notice, SettingsSelect, useFloatingTips } from '@hearthscale/app-ui';
+import { Button, Icon, Label, Notice, SettingsSelect, useFloatingTips } from '@hearthscale/app-ui';
 import { TipIconButton } from './TipIconButton';
 import { reason } from './bridge';
 import { rewriteSection, SECTIONS, writeLyrics, type LyricSection, type SectionName } from './lyrics';
+
+/** The example each kind of section shows in its empty field. */
+const EXAMPLES: Record<SectionName, string> = {
+  Intro: 'Humming low before the day begins',
+  Verse: 'Walking home through the summer rain',
+  'Pre-chorus': 'And I feel it coming closer',
+  Chorus: 'And the streetlights sing along',
+  Bridge: 'Maybe we were never lost at all',
+  Outro: 'Still humming, all the way home',
+};
 
 interface Props {
   /** What the song is about, in the person's words, which the writer reads. */
@@ -13,6 +23,8 @@ interface Props {
 
 export function LyricsEditor({ about, sections, onChange }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
+  const [firstVerse] = useState<LyricSection>(() => ({ id: crypto.randomUUID(), name: 'Verse', text: '' }));
+  const shown = sections.length > 0 ? sections : [firstVerse];
   const [failure, setFailure] = useState<string | null>(null);
   const tips = useFloatingTips('top');
   const write = tips('write', about.trim() ? undefined : 'Describe the song first');
@@ -30,11 +42,12 @@ export function LyricsEditor({ about, sections, onChange }: Props) {
   };
 
   const set = (id: string, change: Partial<LyricSection>) =>
-    onChange(sections.map((s) => (s.id === id ? { ...s, ...change } : s)));
+    onChange(shown.map((s) => (s.id === id ? { ...s, ...change } : s)));
 
   return (
     <div className="ms-lyrics">
-      {sections.map((section) => (
+      <Label>Lyrics</Label>
+      {shown.map((section) => (
         <div key={section.id} className="ms-lyric">
           <div className="ms-lyric-head">
             <SettingsSelect
@@ -48,18 +61,20 @@ export function LyricsEditor({ about, sections, onChange }: Props) {
               size="sm"
               aria-label="Rewrite"
               disabled={busy !== null || !section.text.trim()}
-              onClick={() => void run(section.id, async () => set(section.id, { text: await rewriteSection(about, section, sections) }))}
+              onClick={() => void run(section.id, async () => set(section.id, { text: await rewriteSection(about, section, shown) }))}
             >
               <Icon name={busy === section.id ? 'loader-4-line' : 'refresh-line'} size={14} className={busy === section.id ? 'hs-spin' : undefined} />
             </TipIconButton>
-            <TipIconButton size="sm" aria-label="Remove section" onClick={() => onChange(sections.filter((s) => s.id !== section.id))}>
-              <Icon name="close-line" size={14} />
-            </TipIconButton>
+            {sections.length > 0 && (
+              <TipIconButton size="sm" aria-label="Remove section" onClick={() => onChange(sections.filter((s) => s.id !== section.id))}>
+                <Icon name="close-line" size={14} />
+              </TipIconButton>
+            )}
           </div>
           <textarea
             className="ms-words hs-ta"
             aria-label={`${section.name} lyrics`}
-            placeholder="Walking home through the summer rain"
+            placeholder={EXAMPLES[section.name]}
             rows={Math.max(2, section.text.split('\n').length)}
             value={section.text}
             onChange={(event) => set(section.id, { text: event.target.value })}
@@ -84,7 +99,7 @@ export function LyricsEditor({ about, sections, onChange }: Props) {
           variant="ghost"
           size="sm"
           icon={<Icon name="add-line" size={14} />}
-          onClick={() => onChange([...sections, { id: crypto.randomUUID(), name: sections.length === 0 ? 'Verse' : 'Chorus', text: '' }])}
+          onClick={() => onChange([...shown, { id: crypto.randomUUID(), name: 'Chorus', text: '' }])}
         >
           Add section
         </Button>
