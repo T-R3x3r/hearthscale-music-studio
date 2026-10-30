@@ -45,7 +45,7 @@ export function LyricsEditor({ about, sections, onChange }: Props) {
             <div className="hs-flex-spacer" />
             <IconButton
               size="sm"
-              aria-label="Write again"
+              aria-label="Rewrite"
               disabled={busy !== null || !section.text.trim()}
               onClick={() => void run(section.id, async () => set(section.id, { text: await rewriteSection(about, section, sections) }))}
             >
@@ -58,6 +58,7 @@ export function LyricsEditor({ about, sections, onChange }: Props) {
           <textarea
             className="ms-words hs-ta"
             aria-label={`${section.name} lyrics`}
+            placeholder="Walking home through the summer rain"
             rows={Math.max(2, section.text.split('\n').length)}
             value={section.text}
             onChange={(event) => set(section.id, { text: event.target.value })}
