@@ -540,7 +540,7 @@ export function Studio() {
         if (!mediaType) throw unreadable;
         const asset = await upload(file.name, mediaType, file);
         const buffer = await engine.current!.buffer(asset).catch(async () => {
-          await forget([asset], null, 'Import');
+          await forget([asset], null, 'Delete unreadable file');
           throw unreadable;
         });
         const tempo = songRef.current?.tempo ?? (await findTempo(buffer));
@@ -850,7 +850,7 @@ export function Studio() {
         files.push({ asset: await upload(name, 'audio/wav', wav(await engine.current!.render(alone))), name });
       }
       const save = () =>
-        void tool('export_parts', { root: mount.handle, files }, 'Save tracks').then(
+        void tool('export_parts', { root: mount.handle, files }, 'Export tracks').then(
           () => setDone({ text: 'Tracks saved.' }),
           fail,
         );

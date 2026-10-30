@@ -4,7 +4,7 @@
   "name": "Music studio",
   "version": "0.1.0",
   "api": 6,
-  "description": "Make songs from words, then cut, loop and mix them on tracks. The music runs on the music models of your own computer.",
+  "description": "Make songs from a few words, then arrange and mix them on tracks. Everything runs on this computer.",
   "icon": {
     "light": "assets/icon-light.svg",
     "dark": "assets/icon-dark.svg"
@@ -45,8 +45,8 @@
       "properties": {
         "versions": {
           "type": "integer",
-          "title": "Versions per action",
-          "description": "How many versions each AI action makes. More versions give a choice, and each one adds to the wait.",
+          "title": "Takes to choose from",
+          "description": "Each new piece or change comes as this many takes, and you keep the one you like. Each take adds to the wait.",
           "minimum": 1,
           "maximum": 4,
           "default": 1
@@ -100,7 +100,7 @@
     },
     {
       "name": "export_parts",
-      "title": "Save tracks",
+      "title": "Export tracks",
       "description": "Saves audio files into a folder the person gave the app, then deletes the app's copies.",
       "input": {
         "type": "object",
@@ -258,7 +258,7 @@
     },
     {
       "name": "split_clip",
-      "title": "Split a clip",
+      "title": "Split into stems",
       "icon": "music",
       "description": "Splits a clip of the open song into its parts, such as vocals, drums and bass, each on a track of its own.",
       "input": {
@@ -286,7 +286,7 @@
     },
     {
       "name": "set_song",
-      "title": "Set the tempo or key",
+      "title": "Set tempo and key",
       "icon": "music",
       "description": "Sets the tempo or the key of the open song.",
       "input": {
