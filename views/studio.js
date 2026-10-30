@@ -512,9 +512,10 @@ body {
 }
 
 .ms-clip-bar {
-  position: absolute;
-  inset: 0 0 auto 0;
+  position: relative;
+  order: -1;
   display: flex;
+  flex: none;
   align-items: center;
   gap: var(--gap-inline);
   box-sizing: content-box;
