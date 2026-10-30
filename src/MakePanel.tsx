@@ -3,6 +3,8 @@ import { Button, Chip, Icon, IconButton, Meter, Popover, SettingsSelect, Slider,
 import type { ModelCard } from '@hearthscale/app';
 import { reason } from './bridge';
 import type { MusicModels } from './models';
+import type { LyricSection } from './lyrics';
+import { LyricsEditor } from './LyricsEditor';
 import { abilities, musicSchema, type Abilities } from './music';
 
 const STYLES = [
@@ -25,14 +27,17 @@ interface Props {
   card: ModelCard | null;
   onPick: (card: string) => void;
   onMake: (request: MakeRequest) => void;
+  lyrics: LyricSection[];
+  onLyrics: (sections: LyricSection[]) => void;
 }
 
-export function MakePanel({ models, card, onPick, onMake }: Props) {
+export function MakePanel({ models, card, onPick, onMake, lyrics, onLyrics }: Props) {
   const [words, setWords] = useState('');
   const [styles, setStyles] = useState<string[]>([]);
   const [instrumental, setInstrumental] = useState(false);
   const [seconds, setSeconds] = useState<number | null>(null);
   const [showMore, setShowMore] = useState(false);
+  const [writing, setWriting] = useState(false);
   const more = useRef<HTMLSpanElement>(null);
   const tips = useFloatingTips('top');
 
@@ -51,6 +56,9 @@ export function MakePanel({ models, card, onPick, onMake }: Props) {
 
   return (
     <div className="ms-make">
+      {writing && can?.sings && !instrumental && (
+        <LyricsEditor about={[words, ...styles].join(', ')} sections={lyrics} onChange={onLyrics} />
+      )}
       <textarea
         className="ms-words"
         aria-label="Describe the music"
@@ -85,6 +93,11 @@ export function MakePanel({ models, card, onPick, onMake }: Props) {
             <Toggle checked={instrumental} onChange={setInstrumental} aria-label="Instrumental" />
             Instrumental
           </label>
+        )}
+        {can?.sings && !instrumental && (
+          <Button variant={writing ? 'secondary' : 'ghost'} icon={<Icon name="quill-pen-line" size={14} />} onClick={() => setWriting((w) => !w)}>
+            Lyrics
+          </Button>
         )}
         <div className="ms-grow" />
         <SettingsSelect

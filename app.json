@@ -10,8 +10,9 @@
   "categories": ["audio"],
   "payment": "free",
   "environment": { "kind": "process" },
+  "permissions": ["microphone"],
   "uses": ["db", "jobs", "models"],
-  "models": { "music": { "required": false }, "separation": { "required": false } },
+  "models": { "music": { "required": false }, "separation": { "required": false }, "chat": { "required": false } },
   "settings": {
     "schema": {
       "type": "object",

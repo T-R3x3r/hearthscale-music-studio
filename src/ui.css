@@ -93,6 +93,14 @@ body {
   min-height: var(--h-ctl-lg);
 }
 
+.ms-transport {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-inline);
+  padding: calc(var(--space) * 1.5) calc(var(--space) * 3);
+  border-bottom: var(--bw) solid var(--line);
+}
+
 .ms-title {
   min-width: 0;
   width: calc(var(--space) * 50);
@@ -115,6 +123,7 @@ body {
 
 .ms-tempo {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: var(--gap-label);
   width: calc(var(--space) * 26);
@@ -496,6 +505,26 @@ body {
 .ms-words:focus {
   border-color: var(--focus);
   outline: none;
+}
+
+.ms-lyrics {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-stack);
+  max-height: calc(var(--space) * 90);
+  overflow-y: auto;
+}
+
+.ms-lyric {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-label);
+}
+
+.ms-lyric-head {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-inline);
 }
 
 .ms-chips {

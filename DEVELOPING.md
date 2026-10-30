@@ -51,9 +51,30 @@ Close and open the app's tab again after `npm run build` to load the view.
   only the fields that schema lists. Each version is one job with its own
   seed, where the model takes one. The jobs under way are kept with the song,
   so a view that opens again follows them (`src/jobs.ts`).
-- **Deleting** a song releases its audio through the backend tool
-  `forget_audio`, which only the app's views call.
+- **Edits** (`src/edits.ts`): the edits a music model makes are read from
+  its schema, by the field names the developer documentation gives: a
+  `route` enum (`cover`, `repaint`, `lego`) or an `audioInputKind` enum
+  (`init_audio`, `inpaint_audio`). An edit renders the clip to a WAV,
+  uploads it as the job's `audio`, keeps the clip's own audio as its first
+  version, and plays the result at once. Make it longer redraws silence
+  added after the clip.
+- **Splits**: a clip rendered at 44.1 kHz goes to a `separation` job; each
+  part lands on a track of its own and the source track mutes.
+- **Lyrics** (`src/lyrics.ts`): sections a singing model reads, written
+  and rewritten by the app's chat model through `hearthscale/models/complete`.
+- **Recording** (`src/recorder.ts`, `assets/capture.js`): the view opens
+  the microphone (`permissions: ["microphone"]`) and an AudioWorklet from
+  the package's `assets/` hands each block of sound with its frame on the
+  engine's clock, so a take lines up with the song, less the measured
+  latency.
+- **Snippets and versions** live in the database beside the songs. Audio is
+  released only when no song and no snippet uses it any more.
+- **Deleting** releases audio through the backend tool `forget_audio`,
+  which only the app's views call.
 - **Settings**: `versions`, how many versions each AI action makes (1 to 4).
+
+After every rebuild that `hearthscale dev` makes, an open view's requests
+fail with "this window hosts no such view" until its tab loads again.
 
 ## Licence
 

@@ -4,12 +4,36 @@
  * export renders the same graph in an OfflineAudioContext.
  */
 import { assetUrl } from './bridge';
-import { clipSeconds, clipStart, songSeconds, type Song, type Track } from './song';
+import { clipSeconds, clipStart, secondsPerBeat, songSeconds, type Song, type Track } from './song';
 
 export const RATE = 48_000;
 
 /** Time from a press of Play to the first sound, so every clip starts on time. */
 const LEAD = 0.05;
+
+/** How far ahead the metronome schedules its clicks, and how often it looks. */
+const TICK_AHEAD = 0.3;
+const TICK_EVERY_MS = 100;
+
+export interface PlayOptions {
+  /** Seconds of clicks before the song starts. */
+  countIn?: number;
+  metronome?: boolean;
+  /** Plays on past the song's end until stopped, as a recording does. */
+  open?: boolean;
+}
+
+/** One metronome click at the context time `when`, higher on the first beat of a bar. */
+function click(context: BaseAudioContext, when: number, downbeat: boolean): void {
+  const tone = context.createOscillator();
+  const level = context.createGain();
+  tone.frequency.value = downbeat ? 1600 : 1000;
+  level.gain.setValueAtTime(0.3, when);
+  level.gain.exponentialRampToValueAtTime(0.001, when + 0.05);
+  tone.connect(level).connect(context.destination);
+  tone.start(when);
+  tone.stop(when + 0.06);
+}
 
 /** Waveform points kept per second of audio. */
 export const PEAKS_PER_SECOND = 200;
@@ -145,21 +169,51 @@ export class Engine {
     else this.from = seconds;
   }
 
-  async play(song: Song, from: number, onEnd: () => void): Promise<void> {
+  /**
+   * Plays the song from `from`, after `options.countIn` seconds of
+   * metronome clicks where asked. Answers the context time `from` sounds
+   * at. An open playback goes on past the song's end until it is stopped.
+   */
+  async play(song: Song, from: number, onEnd: () => void, options: PlayOptions = {}): Promise<number> {
     this.halt();
     await this.context.resume();
     const assets = heardAssets(song);
     const buffers = new Map(await Promise.all(assets.map(async (a) => [a, await this.buffer(a)] as const)));
+    const countIn = options.countIn ?? 0;
     this.from = from;
-    this.startedAt = this.context.currentTime + LEAD;
+    this.startedAt = this.context.currentTime + LEAD + countIn;
     this.sources = schedule(this.context, this.context.destination, song, from, this.startedAt, buffers);
     this.playing = song;
-    const remaining = songSeconds(song) - from;
-    this.endTimer = window.setTimeout(() => {
-      this.halt();
-      this.from = 0;
-      onEnd();
-    }, (remaining + LEAD) * 1000);
+    if (options.metronome) this.tick(song, from, this.startedAt - countIn, countIn);
+    if (!options.open) {
+      const remaining = songSeconds(song) - from;
+      this.endTimer = window.setTimeout(() => {
+        this.halt();
+        this.from = 0;
+        onEnd();
+      }, (remaining + LEAD + countIn) * 1000);
+    }
+    return this.startedAt;
+  }
+
+  private ticker = 0;
+
+  /** Clicks every beat from the context time `at`, on the beats of the song from `from` less the count-in. */
+  private tick(song: Song, from: number, at: number, countIn: number): void {
+    const beat = secondsPerBeat(song);
+    const first = from - countIn;
+    let next = Math.ceil(first / beat - 1e-6);
+    const schedule = () => {
+      const until = this.context.currentTime + TICK_AHEAD;
+      for (;;) {
+        const when = at + (next * beat - first);
+        if (when > until) break;
+        if (when >= this.context.currentTime) click(this.context, when, next % song.beatsPerBar === 0);
+        next++;
+      }
+    };
+    schedule();
+    this.ticker = window.setInterval(schedule, TICK_EVERY_MS);
   }
 
   stop(): void {
@@ -193,6 +247,7 @@ export class Engine {
 
   private halt(): void {
     window.clearTimeout(this.endTimer);
+    window.clearInterval(this.ticker);
     for (const source of this.sources) {
       source.onended = null;
       source.stop();

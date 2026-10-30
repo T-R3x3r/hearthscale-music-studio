@@ -13,7 +13,7 @@ import {
 import type { Job } from '@hearthscale/app';
 import { findTempo } from './analyse';
 import { Engine, excerpt, RATE, wav } from './audio';
-import { call, keepWidgetState, onNote, reason, saveFile, settings, tool, upload, widgetState } from './bridge';
+import { assetsUrl, call, keepWidgetState, onNote, reason, saveFile, settings, tool, upload, widgetState } from './bridge';
 import { addTrack, clipOf, duplicate, newClip, placeClip, removeClip } from './edit';
 import { catchUp, isOver, settle } from './jobs';
 import {
@@ -35,8 +35,10 @@ import {
 } from './library';
 import { EditPanel, type EditKind, type EditRequest } from './EditPanel';
 import { editsOf } from './edits';
+import { lyricsText } from './lyrics';
 import { MakePanel, type MakeRequest } from './MakePanel';
 import { musicCard, useMusicModels } from './models';
+import { Recorder } from './recorder';
 import { abilities, musicSchema, newSeed, songInput } from './music';
 import { Snippets } from './Snippets';
 import {
@@ -74,6 +76,9 @@ const SPLIT_RATE = 44_100;
 /** The most seconds Make it longer adds where the model states no longest piece. */
 const LONGEST_ADD = 60;
 
+/** A recording shorter than this, in seconds, is dropped as a slip of the button. */
+const SHORTEST_RECORDING = 0.2;
+
 /** The most edits undo goes back through. */
 const HISTORY = 200;
 
@@ -108,6 +113,9 @@ export function Studio() {
   const [zoom, setZoom] = useState(3);
   const [snippets, setSnippets] = useState<Snippet[]>([]);
   const [previewing, setPreviewing] = useState<string | null>(null);
+  const [metronome, setMetronome] = useState(() => localStorage.getItem('music-metronome') === 'on');
+  const [recordingNow, setRecordingNow] = useState(false);
+  const recording = useRef<{ recorder: Recorder; startAt: number; from: number } | null>(null);
   const [versions, setVersions] = useState<VersionRow[]>([]);
   const [, setDepth] = useState(0);
   const tips = useFloatingTips('bottom');
@@ -276,10 +284,41 @@ export function Studio() {
     setPosition(0);
   }, []);
 
+  /** Ends a recording and puts it on a track of its own, at the bar it started on. */
+  const finishRecording = useCallback(async () => {
+    const taking = recording.current;
+    if (!taking) return;
+    recording.current = null;
+    setRecordingNow(false);
+    const sound = engine.current!;
+    sound.stop();
+    setPlaying(false);
+    setPosition(sound.position());
+    try {
+      const heard = taking.recorder.stop(taking.startAt + taking.recorder.latency());
+      if (heard.duration < SHORTEST_RECORDING) return;
+      const asset = await upload('Recording.wav', 'audio/wav', wav(heard));
+      await edit((s) => {
+        const take = newId();
+        const added = addTrack(s, 'Voice');
+        return {
+          ...placeClip(added.song, added.track, newClip(take, taking.from / secondsPerBeat(s), heard.duration)),
+          takes: { ...s.takes, [take]: { asset, seconds: heard.duration, made: 'recorded', words: 'Recording' } },
+        };
+      });
+    } catch (error) {
+      fail(error);
+    }
+  }, [edit, fail]);
+
   const togglePlay = useCallback(async () => {
     const current = songRef.current;
     const sound = engine.current!;
     if (!current) return;
+    if (recording.current) {
+      await finishRecording();
+      return;
+    }
     if (sound.isPlaying) {
       sound.stop();
       setPlaying(false);
@@ -289,19 +328,41 @@ export function Studio() {
     if (songSeconds(current) === 0) return;
     const from = sound.position() >= songSeconds(current) ? 0 : sound.position();
     try {
-      await sound.play(current, from, ended);
+      await sound.play(current, from, ended, { metronome });
       setPlaying(true);
     } catch (error) {
       fail(error);
     }
-  }, [ended, fail]);
+  }, [ended, fail, finishRecording, metronome]);
+
+  /** Records the microphone from the bar of the playhead, after a bar of clicks, while the song plays. */
+  const record = async () => {
+    const current = songRef.current;
+    const sound = engine.current!;
+    if (!current) return;
+    if (recording.current) {
+      await finishRecording();
+      return;
+    }
+    try {
+      const bar = secondsPerBeat(current) * current.beatsPerBar;
+      const from = Math.floor(sound.position() / bar) * bar;
+      const recorder = await Recorder.start(sound.context, assetsUrl());
+      const startAt = await sound.play(current, from, ended, { countIn: bar, metronome: true, open: true });
+      recording.current = { recorder, startAt, from };
+      setRecordingNow(true);
+      setPlaying(true);
+    } catch (error) {
+      fail(error);
+    }
+  };
 
   useEffect(() => {
     const sound = engine.current!;
     const heard = sound.playing;
-    if (!playing || !song || !heard || (song.tracks === heard.tracks && song.tempo === heard.tempo)) return;
-    void sound.play(song, sound.position(), ended).catch(fail);
-  }, [song, playing, ended, fail]);
+    if (!playing || !song || !heard || recording.current || (song.tracks === heard.tracks && song.tempo === heard.tempo)) return;
+    void sound.play(song, sound.position(), ended, { metronome }).catch(fail);
+  }, [song, playing, ended, fail, metronome]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -390,7 +451,7 @@ export function Studio() {
       styles: request.styles,
       seconds: request.seconds,
       instrumental: request.instrumental,
-      lyrics: '',
+      lyrics: lyricsText(current.lyrics),
       tempo: current.tempo,
       key: current.key,
       seed: null,
@@ -504,7 +565,7 @@ export function Studio() {
         styles: [],
         seconds: piece.duration,
         instrumental: false,
-        lyrics: '',
+        lyrics: lyricsText(current.lyrics),
         tempo: current.tempo,
         key: current.key,
         seed: null,
@@ -759,22 +820,6 @@ export function Studio() {
               <IconButton aria-label="Redo" disabled={future.current.length === 0} onClick={() => void redo()}>
                 <Icon name="arrow-go-forward-line" size={16} />
               </IconButton>
-              <IconButton aria-label="Back to the start" onClick={() => seek(0)}>
-                <Icon name="skip-back-line" size={16} />
-              </IconButton>
-              <span className="hs-tipwrap" {...playTip.hover}>
-                <Button variant="primary" icon={<Icon name={playing ? 'stop-fill' : 'play-fill'} size={14} />} onClick={() => void togglePlay()}>
-                  {playing ? 'Stop' : 'Play'}
-                </Button>
-                {playTip.tip}
-              </span>
-              <span className="ms-mono ms-clock">{clock(position)}</span>
-              <IconButton aria-label="Zoom out" disabled={zoom === 0} onClick={() => setZoom((z) => Math.max(0, z - 1))}>
-                <Icon name="zoom-out-line" size={16} />
-              </IconButton>
-              <IconButton aria-label="Zoom in" disabled={zoom === ZOOMS.length - 1} onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))}>
-                <Icon name="zoom-in-line" size={16} />
-              </IconButton>
               <Button variant="secondary" icon={<Icon name="upload-2-line" size={14} />} onClick={() => picker.current?.click()}>
                 Import
               </Button>
@@ -814,6 +859,46 @@ export function Studio() {
             </>
           )}
         </header>
+        {song && (
+          <div className="ms-transport">
+            <IconButton aria-label="Back to the start" onClick={() => seek(0)}>
+              <Icon name="skip-back-line" size={16} />
+            </IconButton>
+            <span className="hs-tipwrap" {...playTip.hover}>
+              <Button variant="primary" icon={<Icon name={playing ? 'stop-fill' : 'play-fill'} size={14} />} onClick={() => void togglePlay()}>
+                {playing ? 'Stop' : 'Play'}
+              </Button>
+              {playTip.tip}
+            </span>
+            <Button
+              variant={recordingNow ? 'danger' : 'secondary'}
+              icon={<Icon name={recordingNow ? 'stop-fill' : 'record-circle-line'} size={14} />}
+              onClick={() => void record()}
+            >
+              {recordingNow ? 'Stop recording' : 'Record'}
+            </Button>
+            <button
+              type="button"
+              className="ms-toggle"
+              aria-label="Metronome"
+              aria-pressed={metronome}
+              onClick={() => {
+                localStorage.setItem('music-metronome', metronome ? 'off' : 'on');
+                setMetronome(!metronome);
+              }}
+            >
+              <Icon name="timer-flash-line" size={14} />
+            </button>
+            <span className="ms-mono ms-clock">{clock(position)}</span>
+            <div className="ms-grow" />
+            <IconButton aria-label="Zoom out" disabled={zoom === 0} onClick={() => setZoom((z) => Math.max(0, z - 1))}>
+              <Icon name="zoom-out-line" size={16} />
+            </IconButton>
+            <IconButton aria-label="Zoom in" disabled={zoom === ZOOMS.length - 1} onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))}>
+              <Icon name="zoom-in-line" size={16} />
+            </IconButton>
+          </div>
+        )}
         {song ? (
           <div className="ms-body">
             <div className="ms-work">
@@ -863,6 +948,8 @@ export function Studio() {
                     setPicked(id);
                   }}
                   onMake={(request) => void make(request)}
+                  lyrics={song.lyrics}
+                  onLyrics={(lyrics) => void change((s) => ({ ...s, lyrics }))}
                 />
               )}
             </div>

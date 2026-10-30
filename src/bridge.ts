@@ -5,7 +5,7 @@
  */
 import { App, McpUiMessageResultSchema, PostMessageTransport } from '@modelcontextprotocol/ext-apps';
 import { extensionCall } from '@hearthscale/app/view';
-import type { SettingValues, ViewExtensionNotification, ViewHostContext } from '@hearthscale/app';
+import type { CompletionRequest, SettingValues, ViewExtensionNotification, ViewHostContext } from '@hearthscale/app';
 
 export const app = new App({ name: 'Music studio', version: '0.1.0' }, {}, { autoResize: false });
 export const call = extensionCall(app);
@@ -32,6 +32,13 @@ export function assetUrl(asset: string): string {
   const base = context()['hearthscale/assetBytes'];
   if (!base) throw new Error('The host gives no address for audio');
   return base.url + asset;
+}
+
+/** The address of the app's own files under `assets/`. */
+export function assetsUrl(): string {
+  const base = context()['hearthscale/assets'];
+  if (!base) throw new Error("The host gives no address for the app's files");
+  return base.url;
 }
 
 export function settings(): SettingValues {
@@ -80,6 +87,29 @@ export async function upload(name: string, mediaType: string, blob: Blob): Promi
   )) as { asset?: string };
   if (!answer.asset) throw new Error(`${name} was not kept`);
   return answer.asset;
+}
+
+/** The whole answer of a completion on the app's chat model; rejects with the model's error. */
+export async function complete(request: CompletionRequest): Promise<string> {
+  const stream = crypto.randomUUID();
+  let text = '';
+  let failure: string | null = null;
+  const stop = onNote((note) => {
+    if (note.method !== 'hearthscale/models/delta' || note.params.stream !== stream) return;
+    const { delta } = note.params;
+    if ('text' in delta) {
+      if (!delta.reasoning) text += delta.text;
+    } else if (delta.stop === 'error') {
+      failure = delta.error ?? 'The chat model failed.';
+    }
+  });
+  try {
+    await call('hearthscale/models/complete', { stream, request });
+  } finally {
+    stop();
+  }
+  if (failure) throw new Error(failure);
+  return text;
 }
 
 /** The host's words of a refused request, without the protocol's prefix. */

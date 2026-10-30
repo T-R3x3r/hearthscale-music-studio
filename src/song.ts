@@ -4,6 +4,7 @@
  * tempo moves them with the song. Takes are never dropped from a song, so
  * a version the person did not keep stays in its history.
  */
+import type { LyricSection } from './lyrics';
 
 export type Made = 'generated' | 'recorded' | 'imported' | 'split';
 
@@ -98,6 +99,8 @@ export interface Song {
   tracks: Track[];
   takes: Record<string, Take>;
   pending: Pending[];
+  /** The words a singing model sings, by section. */
+  lyrics: LyricSection[];
 }
 
 export const SWATCHES = ['ocean', 'ember', 'jade', 'violet', 'sun', 'rose', 'sky', 'lime', 'plum', 'amber', 'indigo', 'moss'] as const;
@@ -111,7 +114,7 @@ export function newId(): string {
 }
 
 export function newSong(title: string): Song {
-  return { id: newId(), title, tempo: null, key: null, beatsPerBar: 4, tracks: [], takes: {}, pending: [] };
+  return { id: newId(), title, tempo: null, key: null, beatsPerBar: 4, tracks: [], takes: {}, pending: [], lyrics: [] };
 }
 
 export function newTrack(song: Song, name: string): Track {
