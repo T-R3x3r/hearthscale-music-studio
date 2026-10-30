@@ -610,11 +610,6 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: var(--gap-label);
-  margin: 0 calc(var(--space) * -2.25);
-}
-
-.ms-chips .hs-chip {
-  padding: calc(var(--space) * 1.25) calc(var(--space) * 2.25);
 }
 
 .ms-make-row {
