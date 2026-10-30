@@ -52,16 +52,22 @@ export function useSlot<T extends HTMLElement>(id: string, build: (insets: Inset
 
   useLayoutEffect(place);
 
+  // Removal runs in the layout phase, so an element that replaces this one
+  // under the same id, as on a remount, places its slot after the removal.
+  useLayoutEffect(
+    () => () => {
+      last.current = '';
+      void setSlot(id, null);
+    },
+    [id],
+  );
+
   useEffect(() => {
     const observer = new ResizeObserver(place);
     observer.observe(document.body);
     if (ref.current) observer.observe(ref.current);
-    return () => {
-      observer.disconnect();
-      last.current = '';
-      void setSlot(id, null);
-    };
-  }, [id, place]);
+    return () => observer.disconnect();
+  }, [place]);
 
   return [ref, placed];
 }
