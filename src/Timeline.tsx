@@ -318,6 +318,7 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
   const [menu, setMenu] = useState<MenuAnchor | null>(null);
   const [menuKeys, setMenuKeys] = useState(false);
   const point = useRef<HTMLSpanElement>(null);
+  const self = useRef<HTMLDivElement>(null);
   const left = clipStart(song, clip) * pps;
   const take = song.takes[clip.take];
   const waiting = song.pending.filter((p) => p.clip === clip.id && !p.split);
@@ -396,14 +397,20 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
       onSelect(clip.id);
     } else if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
       event.preventDefault();
+      const box = event.currentTarget.getBoundingClientRect();
+      const name = event.currentTarget.querySelector('.ms-clip-name')!.getBoundingClientRect();
+      const at = point.current!;
+      at.style.left = `${name.left - box.left}px`;
+      at.style.top = `${name.bottom - box.top}px`;
       onSelect(clip.id);
       setMenuKeys(true);
-      setMenu({ key: 'clip', element: event.currentTarget });
+      setMenu({ key: 'clip', element: at });
     }
   };
 
   return (
     <div
+      ref={self}
       className="ms-clip"
       tabIndex={0}
       aria-label={take.words || 'Audio'}
