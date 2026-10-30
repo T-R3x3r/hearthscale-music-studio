@@ -4,7 +4,7 @@
   "name": "Music studio",
   "version": "0.1.0",
   "api": 6,
-  "description": "Make songs from a few words, then arrange and mix them on tracks. Everything runs on this computer.",
+  "description": "Make songs from a few words, then mix them on tracks.",
   "icon": {
     "light": "assets/icon-light.svg",
     "dark": "assets/icon-dark.svg"
