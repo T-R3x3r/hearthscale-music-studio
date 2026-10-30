@@ -340,7 +340,7 @@ function useNameRoom(clip: RefObject<HTMLDivElement | null>, made: boolean) {
   }, [made]);
 }
 
-function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onPress, onEdit, onKeep, onRetry, onSnippet, onSplit, onSelect, onEditStart }: ClipProps) {
+function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, range, onRange, onPress, onEdit, onKeep, onRetry, onSnippet, onSplit, onSelect, onEditStart }: ClipProps) {
   const tips = useFloatingTips('top');
   const [menu, setMenu] = useState<MenuAnchor | null>(null);
   const [menuKeys, setMenuKeys] = useState(false);
@@ -422,12 +422,25 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
     setMenuKeys(false);
     setMenu({ key: 'clip', element: at });
   };
-  /** Picks the clip on Enter, and opens its menu on Shift+F10 or the menu key. */
+  /** Grows or shrinks by one bar the range of bars chosen in the clip, from its first bar. */
+  const stepRange = (by: number) => {
+    const bar = secondsPerBeat(song) * song.beatsPerBar;
+    const first = Math.floor(start / bar) * bar;
+    const last = Math.ceil((start + clip.length) / bar) * bar;
+    const from = range && range.from >= first && range.from < last ? range.from : first;
+    const to = Math.min(last, Math.max(from, (range && range.from === from ? range.to : from) + by * bar));
+    onRange(to > from ? { from, to } : null);
+  };
+  /** Picks the clip on Enter, opens its menu on Shift+F10 or the menu key, and chooses bars with Shift and the arrow keys. */
   const onKey = (event: KeyboardEvent<HTMLElement>) => {
     if (event.target !== event.currentTarget) return;
     if (event.key === 'Enter') {
       event.preventDefault();
       onSelect(clip.id);
+    } else if (event.shiftKey && (event.key === 'ArrowRight' || event.key === 'ArrowLeft')) {
+      event.preventDefault();
+      onSelect(clip.id);
+      stepRange(event.key === 'ArrowRight' ? 1 : -1);
     } else if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
       event.preventDefault();
       const box = event.currentTarget.getBoundingClientRect();

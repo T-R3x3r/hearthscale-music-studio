@@ -1361,7 +1361,7 @@ function barsOf(song: Song, clip: Clip, range: Range | null): { label: string } 
   const start = clipStart(song, clip);
   const from = range ? Math.max(range.from, start) : 0;
   const to = range ? Math.min(range.to, start + clip.length) : 0;
-  if (!range || to <= from) return { missing: 'Drag across the bar numbers to choose the bars' };
+  if (!range || to <= from) return { missing: 'Drag across the bar numbers, or press Shift and an arrow key on the clip, to choose the bars' };
   const bar = secondsPerBeat(song) * song.beatsPerBar;
   const first = Math.floor(from / bar) + 1;
   const last = Math.max(first, Math.ceil(to / bar));
