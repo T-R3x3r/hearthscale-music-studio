@@ -32,7 +32,7 @@ import {
   widgetState,
   type OpenedFile,
 } from './bridge';
-import { addTrack, clipOf, duplicate, newClip, placeClip, removeClip } from './edit';
+import { addTrack, changeTrack, clipOf, duplicate, newClip, placeClip, removeClip } from './edit';
 import { catchUp, isOver, settle } from './jobs';
 import {
   deleteSnippet,
@@ -73,9 +73,13 @@ import {
   type Clip,
   type Pending,
   type Song,
+  type Sound,
+  type Track,
 } from './song';
 import { Timeline, type Range } from './Timeline';
 import { Versions } from './Versions';
+import { Assistant } from './Assistant';
+import { songContext } from './context';
 
 const KEYS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'].flatMap((note) => [
   `${note} major`,
@@ -96,6 +100,15 @@ const LONGEST_ADD = 60;
 
 /** A recording shorter than this, in seconds, is dropped as a slip of the button. */
 const SHORTEST_RECORDING = 0.2;
+
+/** A call of one of the assistant's tools, which its backend hands to the view. */
+interface AssistantCall {
+  tool: string;
+  input: Record<string, unknown>;
+}
+
+/** The edit each change the assistant names stands for. */
+const ASSISTANT_EDITS: Record<string, EditKind> = { style: 'restyle', redo: 'repaint', longer: 'longer', part: 'add' };
 
 /** The most edits undo goes back through. */
 const HISTORY = 200;
@@ -126,7 +139,7 @@ export function Studio() {
   const [range, setRange] = useState<Range | null>(null);
   const [editing, setEditing] = useState<{ kind: EditKind; clip: string } | null>(null);
   const [sidebar, setSidebar] = useState(true);
-  const [panel, setPanel] = useState(false);
+  const [panel, setPanel] = useState<'snippets' | 'assistant' | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [zoom, setZoom] = useState(3);
   const [snippets, setSnippets] = useState<Snippet[]>([]);
@@ -271,6 +284,10 @@ export function Studio() {
   useEffect(
     () =>
       onNote((note) => {
+        if (note.method === 'hearthscale/events/event' && note.params.name === 'studio') {
+          assistantRef.current(note.params.data as AssistantCall).catch(fail);
+          return;
+        }
         if (note.method !== 'hearthscale/jobs/progress') return;
         const { job } = note.params;
         setJobs((before) => ({ ...before, [job.id]: job }));
@@ -557,7 +574,7 @@ export function Studio() {
   };
 
   /** Runs an edit of a clip on the music model: its result plays at once, beside the clip's own audio. */
-  const performEdit = async (request: EditRequest) => {
+  const performEdit = async (request: EditRequest, bars: Range | null = range) => {
     const current = songRef.current;
     const clip = current && clipOf(current, request.clip);
     const take = clip && current.takes[clip.take];
@@ -577,7 +594,7 @@ export function Studio() {
             ? can.repaint!(clip.length, clip.length + pad)
             : request.kind === 'add'
               ? can.addPart!(request.part)
-              : can.repaint!(Math.max(0, range!.from - start), Math.min(clip.length, range!.to - start));
+              : can.repaint!(Math.max(0, bars!.from - start), Math.min(clip.length, bars!.to - start));
       const asset = await upload(`${take.words || current.title}.wav`, 'audio/wav', wav(piece));
       const base = songInput(schema, {
         words: request.words,
@@ -633,6 +650,49 @@ export function Studio() {
     }
   };
 
+  /** Does what a tool of the assistant asks, with the studio's own actions, so each is one step of undo. */
+  const assistant = async ({ tool: name, input }: AssistantCall) => {
+    const current = songRef.current;
+    if (!current || input.song !== current.id) throw new Error('The assistant named a song that is not open.');
+    const text = (field: string) => (typeof input[field] === 'string' ? (input[field] as string) : undefined);
+    const number = (field: string) => (typeof input[field] === 'number' ? (input[field] as number) : undefined);
+    if (name === 'make_music') {
+      const model = musicCard(models, picked);
+      if (!model) throw new Error('No music model can run now.');
+      await make({ card: model, words: text('words') ?? '', styles: [], seconds: number('seconds') ?? null, instrumental: false });
+    } else if (name === 'change_clip') {
+      const kind = ASSISTANT_EDITS[text('how') ?? ''];
+      const clip = clipOf(current, text('clip') ?? '');
+      if (!kind || !clip) throw new Error('The assistant named a clip or a change the studio does not know.');
+      const bar = secondsPerBeat(current) * current.beatsPerBar;
+      const first = number('from_bar');
+      const last = number('to_bar');
+      if (kind === 'repaint' && (first === undefined || last === undefined)) throw new Error('Redo needs the first and the last bar.');
+      if (kind === 'add' && !text('part')) throw new Error('Adding a part needs the instrument.');
+      await performEdit(
+        { kind, clip: clip.id, words: text('words') ?? '', change: number('change') ?? 0.5, seconds: number('seconds') ?? 15, part: text('part') ?? '' },
+        kind === 'repaint' ? { from: (first! - 1) * bar, to: last! * bar } : null,
+      );
+    } else if (name === 'split_clip') {
+      await split(text('clip') ?? '');
+    } else if (name === 'set_song') {
+      const tempo = number('tempo');
+      const key = text('key');
+      await edit((s) => ({ ...s, ...(tempo === undefined ? {} : { tempo }), ...(key === undefined ? {} : { key }) }));
+    } else if (name === 'mix_track') {
+      const sound = text('sound');
+      const change: Partial<Omit<Track, 'id' | 'clips'>> = {};
+      if (number('volume') !== undefined) change.volume = number('volume');
+      if (number('pan') !== undefined) change.pan = number('pan');
+      if (typeof input.muted === 'boolean') change.muted = input.muted;
+      if (typeof input.solo === 'boolean') change.solo = input.solo;
+      if (sound !== undefined) change.sound = sound === 'none' ? null : (sound as Sound);
+      await edit((s) => changeTrack(s, text('track') ?? '', change));
+    }
+  };
+  const assistantRef = useRef(assistant);
+  assistantRef.current = assistant;
+
   const keepSnippet = async (clipId: string) => {
     const current = songRef.current;
     const clip = current && clipOf(current, clipId);
@@ -651,7 +711,7 @@ export function Studio() {
     try {
       await saveSnippet(snippet);
       setSnippets(await listSnippets());
-      setPanel(true);
+      setPanel('snippets');
     } catch (error) {
       fail(error);
     }
@@ -950,9 +1010,19 @@ export function Studio() {
                   />
                 </MenuSurface>
               )}
-              <IconButton aria-label={panel ? 'Hide snippets' : 'Show snippets'} onClick={() => setPanel((p) => !p)}>
+              <IconButton
+                aria-label={panel === 'snippets' ? 'Hide snippets' : 'Show snippets'}
+                onClick={() => setPanel((p) => (p === 'snippets' ? null : 'snippets'))}
+              >
                 <Icon name="bookmark-line" size={16} />
               </IconButton>
+              <Button
+                variant={panel === 'assistant' ? 'primary' : 'secondary'}
+                icon={<Icon name="chat-smile-2-line" size={14} />}
+                onClick={() => setPanel((p) => (p === 'assistant' ? null : 'assistant'))}
+              >
+                Ask
+              </Button>
             </>
           )}
         </header>
@@ -1059,7 +1129,7 @@ export function Studio() {
                 />
               )}
             </div>
-            {panel && (
+            {panel === 'snippets' && (
               <aside className="ms-panel">
                 <div className="ms-panel-head ms-strong">Snippets</div>
                 <Snippets
@@ -1069,6 +1139,11 @@ export function Studio() {
                   onRename={renameSnippet}
                   onDelete={(snippet) => void removeSnippet(snippet)}
                 />
+              </aside>
+            )}
+            {panel === 'assistant' && (
+              <aside className="ms-panel ms-assistant">
+                <Assistant title={song.title} context={songContext(song, card, edits)} />
               </aside>
             )}
           </div>

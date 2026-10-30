@@ -174,6 +174,13 @@ export function withVersion(song: Song, clip: string, take: string): Song {
   return withClip(song, clip, (c) => ({ ...c, take, offset: chosen.start ?? 0, length: chosen.span ?? chosen.seconds }));
 }
 
+/** The bars a clip spans, counted from 1. */
+export function clipBars(song: Song, clip: Clip): { from: number; to: number } {
+  const from = Math.floor(clip.startBeat / song.beatsPerBar) + 1;
+  const end = clip.startBeat + clipSeconds(clip) / secondsPerBeat(song);
+  return { from, to: Math.max(from, Math.ceil(end / song.beatsPerBar)) };
+}
+
 /** The assets of every take the song holds. */
 export function songAssets(song: Song): string[] {
   return Object.values(song.takes).map((take) => take.asset);

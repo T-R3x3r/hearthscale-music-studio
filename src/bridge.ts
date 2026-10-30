@@ -5,12 +5,20 @@
  */
 import { App, McpUiMessageResultSchema, PostMessageTransport } from '@modelcontextprotocol/ext-apps';
 import { extensionCall } from '@hearthscale/app/view';
-import type { CompletionRequest, SettingValues, ViewExtensionNotification, ViewHostContext } from '@hearthscale/app';
+import type {
+  CompletionRequest,
+  HostSlot,
+  HostSlotNotification,
+  SettingValues,
+  ViewExtensionNotification,
+  ViewHostContext,
+} from '@hearthscale/app';
 
 export const app = new App({ name: 'Music studio', version: '0.1.0' }, {}, { autoResize: false });
 export const call = extensionCall(app);
 
-type Listener = (note: ViewExtensionNotification) => void;
+type Note = ViewExtensionNotification | HostSlotNotification;
+type Listener = (note: Note) => void;
 const listeners = new Set<Listener>();
 
 /** Hears every `hearthscale/*` notification until the returned function runs. */
@@ -20,7 +28,7 @@ export function onNote(listener: Listener): () => void {
 }
 
 app.fallbackNotificationHandler = async (note) => {
-  for (const listener of listeners) listener(note as ViewExtensionNotification);
+  for (const listener of listeners) listener(note as Note);
 };
 
 /** A file the person opened with the app, as the host hands it to the view. */
@@ -75,9 +83,31 @@ export function widgetState(): unknown {
   return context()['hearthscale/widgetState'];
 }
 
-/** Keeps a value the host gives back as the widget state when it loads the view again. */
-export async function keepWidgetState(state: unknown): Promise<void> {
-  await app.request({ method: 'hearthscale/ui/set-widget-state', params: { state } } as never, McpUiMessageResultSchema);
+let kept: Record<string, unknown> | null = null;
+
+/** Keeps values the host gives back in the widget state when it loads the view again, beside the ones kept before. */
+export async function keepWidgetState(values: Record<string, unknown>): Promise<void> {
+  kept = { ...(kept ?? ((widgetState() as Record<string, unknown> | null) ?? {})), ...values };
+  await app.request({ method: 'hearthscale/ui/set-widget-state', params: { state: kept } } as never, McpUiMessageResultSchema);
+}
+
+/** Reserves the shell's slots, such as the chat, at their places in the view; an empty list removes them. */
+export async function placeSlots(slots: HostSlot[]): Promise<void> {
+  await app.request({ method: 'hearthscale/ui/slots', params: { slots } } as never, McpUiMessageResultSchema);
+}
+
+/** Puts text into a chip above the chat slot `slot`, which the next message there carries. */
+export async function chatContext(slot: string, title: string, text: string): Promise<void> {
+  await app.request(
+    {
+      method: 'ui/update-model-context',
+      params: {
+        content: [{ type: 'text', text, _meta: { 'openai/title': title } }],
+        _meta: { 'hearthscale/modelContext': { slot } },
+      },
+    } as never,
+    McpUiMessageResultSchema,
+  );
 }
 
 export async function connect(): Promise<void> {

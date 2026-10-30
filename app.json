@@ -5,14 +5,40 @@
   "version": "0.1.0",
   "api": 6,
   "description": "Make songs from words, then cut, loop and mix them on tracks. The music runs on the music models of your own computer.",
-  "icon": { "light": "assets/icon-light.svg", "dark": "assets/icon-dark.svg" },
+  "icon": {
+    "light": "assets/icon-light.svg",
+    "dark": "assets/icon-dark.svg"
+  },
   "license": "MIT",
-  "categories": ["audio"],
+  "categories": [
+    "audio"
+  ],
   "payment": "free",
-  "environment": { "kind": "process" },
-  "permissions": ["microphone"],
-  "uses": ["db", "jobs", "models", "roots"],
-  "models": { "music": { "required": false }, "separation": { "required": false }, "chat": { "required": false } },
+  "environment": {
+    "kind": "process"
+  },
+  "permissions": [
+    "microphone"
+  ],
+  "uses": [
+    "db",
+    "jobs",
+    "models",
+    "roots",
+    "sessions",
+    "events"
+  ],
+  "models": {
+    "music": {
+      "required": false
+    },
+    "separation": {
+      "required": false
+    },
+    "chat": {
+      "required": false
+    }
+  },
   "settings": {
     "schema": {
       "type": "object",
@@ -28,6 +54,24 @@
       }
     }
   },
+  "agent": {
+    "name": "Music studio",
+    "model": {
+      "kind": "chat",
+      "tools": true
+    },
+    "prompt": [
+      "prompt/system.md"
+    ],
+    "tools": [
+      "make_music",
+      "change_clip",
+      "split_clip",
+      "set_song",
+      "mix_track",
+      "ask"
+    ]
+  },
   "tools": [
     {
       "name": "forget_audio",
@@ -36,13 +80,23 @@
       "input": {
         "type": "object",
         "properties": {
-          "assets": { "type": "array", "items": { "type": "string" }, "description": "The ids of the audio assets to delete." }
+          "assets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The ids of the audio assets to delete."
+          }
         },
-        "required": ["assets"]
+        "required": [
+          "assets"
+        ]
       },
       "mutating": true,
       "outbound": false,
-      "visibility": ["app"]
+      "visibility": [
+        "app"
+      ]
     },
     {
       "name": "export_parts",
@@ -51,24 +105,272 @@
       "input": {
         "type": "object",
         "properties": {
-          "root": { "type": "string", "description": "The handle of the folder's mount." },
+          "root": {
+            "type": "string",
+            "description": "The handle of the folder's mount."
+          },
           "files": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "asset": { "type": "string", "description": "The id of the audio asset." },
-                "name": { "type": "string", "description": "The file name in the folder." }
+                "asset": {
+                  "type": "string",
+                  "description": "The id of the audio asset."
+                },
+                "name": {
+                  "type": "string",
+                  "description": "The file name in the folder."
+                }
               },
-              "required": ["asset", "name"]
+              "required": [
+                "asset",
+                "name"
+              ]
             }
           }
         },
-        "required": ["root", "files"]
+        "required": [
+          "root",
+          "files"
+        ]
       },
       "mutating": true,
       "outbound": false,
-      "visibility": ["app"]
+      "visibility": [
+        "app"
+      ]
+    },
+    {
+      "name": "make_music",
+      "title": "Make music",
+      "icon": "music",
+      "description": "Makes a new piece of music from words and puts it on the first track of the open song, after the music there.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "song": {
+            "type": "string",
+            "description": "The id of the open song."
+          },
+          "words": {
+            "type": "string",
+            "description": "What the music is: genre, mood, instruments."
+          },
+          "seconds": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 300,
+            "description": "How long it may run."
+          }
+        },
+        "required": [
+          "song",
+          "words"
+        ]
+      },
+      "mutating": true,
+      "outbound": false,
+      "visibility": [
+        "model"
+      ]
+    },
+    {
+      "name": "change_clip",
+      "title": "Change a clip",
+      "icon": "music",
+      "description": "Changes one clip of the open song with the music model: \"style\" makes it again in a new style, \"redo\" makes the bars from_bar to to_bar again, \"longer\" adds seconds at its end, \"part\" adds an instrument part on a new track. The result plays as a new version of the clip.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "song": {
+            "type": "string",
+            "description": "The id of the open song."
+          },
+          "clip": {
+            "type": "string",
+            "description": "The id of the clip."
+          },
+          "how": {
+            "type": "string",
+            "enum": [
+              "style",
+              "redo",
+              "longer",
+              "part"
+            ]
+          },
+          "words": {
+            "type": "string",
+            "description": "What the music becomes."
+          },
+          "change": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "For style: how different, 0 close to 1 far."
+          },
+          "from_bar": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "For redo: the first bar."
+          },
+          "to_bar": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "For redo: the last bar."
+          },
+          "seconds": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 120,
+            "description": "For longer: seconds to add."
+          },
+          "part": {
+            "type": "string",
+            "enum": [
+              "drums",
+              "bass",
+              "guitar",
+              "keyboard",
+              "strings",
+              "synth",
+              "percussion",
+              "brass",
+              "woodwinds",
+              "vocals"
+            ],
+            "description": "For part: the instrument."
+          }
+        },
+        "required": [
+          "song",
+          "clip",
+          "how",
+          "words"
+        ]
+      },
+      "mutating": true,
+      "outbound": false,
+      "visibility": [
+        "model"
+      ]
+    },
+    {
+      "name": "split_clip",
+      "title": "Split a clip",
+      "icon": "music",
+      "description": "Splits a clip of the open song into its parts, such as vocals, drums and bass, each on a track of its own.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "song": {
+            "type": "string",
+            "description": "The id of the open song."
+          },
+          "clip": {
+            "type": "string",
+            "description": "The id of the clip."
+          }
+        },
+        "required": [
+          "song",
+          "clip"
+        ]
+      },
+      "mutating": true,
+      "outbound": false,
+      "visibility": [
+        "model"
+      ]
+    },
+    {
+      "name": "set_song",
+      "title": "Set the tempo or key",
+      "icon": "music",
+      "description": "Sets the tempo or the key of the open song.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "song": {
+            "type": "string",
+            "description": "The id of the open song."
+          },
+          "tempo": {
+            "type": "integer",
+            "minimum": 40,
+            "maximum": 240,
+            "description": "Beats a minute."
+          },
+          "key": {
+            "type": "string",
+            "description": "Such as \"A minor\" or \"C major\"."
+          }
+        },
+        "required": [
+          "song"
+        ]
+      },
+      "mutating": true,
+      "outbound": false,
+      "visibility": [
+        "model"
+      ]
+    },
+    {
+      "name": "mix_track",
+      "title": "Mix a track",
+      "icon": "music",
+      "description": "Sets the volume, pan, mute, solo or sound of a track of the open song.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "song": {
+            "type": "string",
+            "description": "The id of the open song."
+          },
+          "track": {
+            "type": "string",
+            "description": "The id of the track."
+          },
+          "volume": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1.5,
+            "description": "1 is as it came."
+          },
+          "pan": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1,
+            "description": "-1 left, 0 centre, 1 right."
+          },
+          "muted": {
+            "type": "boolean"
+          },
+          "solo": {
+            "type": "boolean"
+          },
+          "sound": {
+            "type": "string",
+            "enum": [
+              "none",
+              "warm",
+              "bright",
+              "space"
+            ]
+          }
+        },
+        "required": [
+          "song",
+          "track"
+        ]
+      },
+      "mutating": true,
+      "outbound": false,
+      "visibility": [
+        "model"
+      ]
     }
   ],
   "surfaces": [
@@ -77,8 +379,17 @@
       "kind": "view",
       "title": "Music studio",
       "entry": "views/studio.js",
-      "placements": ["rail", "tab"],
-      "opens": [".wav", ".mp3", ".flac", ".ogg", ".m4a"]
+      "placements": [
+        "rail",
+        "tab"
+      ],
+      "opens": [
+        ".wav",
+        ".mp3",
+        ".flac",
+        ".ogg",
+        ".m4a"
+      ]
     }
   ]
 }

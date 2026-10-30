@@ -185,6 +185,16 @@ body {
   overflow-y: auto;
 }
 
+.ms-assistant {
+  width: calc(var(--space) * 96);
+  padding: 0;
+}
+
+.ms-chat-room {
+  flex: 1;
+  min-height: 0;
+}
+
 .ms-snippets {
   display: flex;
   flex-direction: column;
@@ -535,8 +545,9 @@ body {
 
 .ms-make-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--gap-row);
+  gap: var(--gap-inline) var(--gap-row);
 }
 
 .ms-length {
