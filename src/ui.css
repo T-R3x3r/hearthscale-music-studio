@@ -57,7 +57,22 @@ body {
 
 .ms-song-open:focus-visible {
   outline: none;
+}
+
+.ms-song-row:has(.ms-song-open:focus-visible) {
   box-shadow: var(--focus);
+}
+
+.ms-row-action {
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease-out);
+}
+
+.ms-song-row:hover .ms-row-action,
+.ms-song-row:focus-within .ms-row-action,
+.ms-snippet:hover .ms-row-action,
+.ms-snippet:focus-within .ms-row-action {
+  opacity: 1;
 }
 
 .ms-song-title {

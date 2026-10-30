@@ -1235,7 +1235,7 @@ export function Studio() {
                         <Icon name="music-2-line" size={14} />
                         <span className="ms-song-title">{row.title}</span>
                       </button>
-                      <IconButton size="sm" aria-label={`Delete ${row.title}`} onClick={() => setDeleting(row)}>
+                      <IconButton size="sm" className="ms-row-action" aria-label={`Delete ${row.title}`} onClick={() => setDeleting(row)}>
                         <Icon name="delete-bin-line" size={14} />
                       </IconButton>
                     </div>
