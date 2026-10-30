@@ -264,14 +264,14 @@ export function Studio() {
   }, []);
 
   const open = useCallback(
-    async (id: string | null) => {
+    async (id: string) => {
       engine.current!.stop();
       setPlaying(false);
       setPosition(0);
       setSelected(null);
       past.current = [];
       future.current = [];
-      const found = id ? await loadSong(id) : null;
+      const found = await loadSong(id);
       songRef.current = found;
       setSong(found);
       setVersions(found ? await listVersions(found.id) : []);
@@ -281,6 +281,26 @@ export function Studio() {
     [change, withTempo, fail],
   );
 
+  /** Saves a new empty song beside the songs `list` holds and opens it. */
+  const startSong = useCallback(
+    async (list: SongRow[]) => {
+      const created = newSong(freshTitle(list));
+      await saveSong(created);
+      setRows(await listSongs());
+      await open(created.id);
+    },
+    [open],
+  );
+
+  /** Opens the song of `id`, or a new song when the library is empty, so the studio always holds a song. */
+  const openOrStart = useCallback(
+    async (list: SongRow[], id: string | undefined) => {
+      const found = list.find((row) => row.id === id) ?? list[0];
+      await (found ? open(found.id) : startSong(list));
+    },
+    [open, startSong],
+  );
+
   useEffect(() => {
     void (async () => {
       try {
@@ -288,15 +308,14 @@ export function Studio() {
         const list = await listSongs();
         setRows(list);
         setSnippets(await listSnippets());
-        const kept = (widgetState() as { song?: string } | null)?.song;
-        await open(list.find((row) => row.id === kept)?.id ?? list[0]?.id ?? null);
+        await openOrStart(list, (widgetState() as { song?: string } | null)?.song);
       } catch (error) {
         fail(error);
       } finally {
         setLoaded(true);
       }
     })();
-  }, [open, fail]);
+  }, [openOrStart, fail]);
 
   useEffect(
     () =>
@@ -447,12 +466,7 @@ export function Studio() {
     return () => window.removeEventListener('keydown', onKey);
   }, [togglePlay, undo, redo, edit]);
 
-  const createSong = async () => {
-    const created = newSong(freshTitle(rows));
-    await saveSong(created).catch(fail);
-    await refreshRows();
-    await open(created.id);
-  };
+  const createSong = () => startSong(rows).catch(fail);
 
   /** Deletes audio that nothing kept uses any more, on the press that asked for it. */
   const forget = async (assets: string[], except: string | null, label: string) => {
@@ -472,7 +486,7 @@ export function Studio() {
       await deleteSong(row.id);
       const list = await listSongs();
       setRows(list);
-      if (row.id === songRef.current?.id) await open(list[0]?.id ?? null);
+      if (row.id === songRef.current?.id) await openOrStart(list, undefined);
     } catch (error) {
       fail(error);
     }
@@ -1168,7 +1182,7 @@ export function Studio() {
             <Assistant title={song.title} context={songContext(song, card, edits)} />
           </aside>
         )}
-        {song ? (
+        {song && (
           <div className="ms-work">
             {song.tracks.length > 0 ? (
               <Timeline
@@ -1220,14 +1234,6 @@ export function Studio() {
                 onLyrics={(lyrics) => void change((s) => ({ ...s, lyrics }))}
               />
             )}
-          </div>
-        ) : (
-          <div className="ms-empty">
-            <EmptyState icon={<Icon name="music-2-line" size={30} />} title="No song yet">
-              <Button icon={<Icon name="add-line" size={14} />} onClick={() => void createSong()}>
-                New song
-              </Button>
-            </EmptyState>
           </div>
         )}
         {library && (
