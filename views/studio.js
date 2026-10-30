@@ -246,7 +246,7 @@ body {
 }
 
 .ms-dock-chat {
-  width: calc(var(--space) * 96);
+  width: calc(var(--space) * 110);
   border-right: var(--bw) solid var(--line);
 }
 
