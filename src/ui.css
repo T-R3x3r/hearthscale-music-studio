@@ -290,7 +290,7 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: var(--gap-label);
+  gap: var(--gap-inline);
   height: calc(var(--space) * 22);
   padding: 0 calc(var(--space) * 3.5);
   border-bottom: var(--bw) solid var(--line);
