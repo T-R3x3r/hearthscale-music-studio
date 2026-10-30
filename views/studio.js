@@ -376,6 +376,14 @@ body {
   font-weight: var(--fw-semi);
 }
 
+.ms-letter:focus-visible {
+  box-shadow: var(--ring), var(--focus);
+}
+
+.ms-switch-button[aria-pressed='true']:focus-visible {
+  box-shadow: inset 0 0 0 var(--bw) var(--tipline), var(--gloss-edge), var(--focus);
+}
+
 .ms-lanes-scroll {
   flex: 1;
   overflow: auto;
