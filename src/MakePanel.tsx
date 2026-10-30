@@ -140,7 +140,12 @@ function NoModel({ models }: { models: MusicModels }) {
     return (
       <div className="ms-make">
         <div>
-          <Notice>{models.why ?? 'No music model can run on this computer.'}</Notice>
+          <Notice>
+            {models.why ?? 'No music model can run on this computer.'}
+            <button type="button" className="hs-link" onClick={() => void models.refresh()}>
+              Try again
+            </button>
+          </Notice>
         </div>
       </div>
     );
