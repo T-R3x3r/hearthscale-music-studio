@@ -57,7 +57,7 @@ Close and open the app's tab again after `npm run build` to load the view.
   `ui/download-file`.
 - **Music jobs** run from the view (`hearthscale/jobs/*`). The app reads
   each music model's input schema from its card (`src/music.ts`) and sends
-  only the fields that schema lists. Each version is one job with its own
+  only the fields that schema lists. Each take is one job with its own
   seed, where the model takes one. The jobs under way are kept with the song,
   so a view that opens again follows them (`src/jobs.ts`).
 - **Edits** (`src/edits.ts`): the edits a music model makes are read from
@@ -65,7 +65,7 @@ Close and open the app's tab again after `npm run build` to load the view.
   `route` enum (`cover`, `repaint`, `lego`) or an `audioInputKind` enum
   (`init_audio`, `inpaint_audio`). An edit renders the clip to a WAV,
   uploads it as the job's `audio`, keeps the clip's own audio as its first
-  version, and plays the result at once. Extend redraws silence
+  take, and plays the result at once. Extend redraws silence
   added after the clip.
 - **Splits**: a clip rendered at 44.1 kHz goes to a `separation` job; each
   part lands on a track of its own and the source track mutes.
@@ -100,7 +100,8 @@ Close and open the app's tab again after `npm run build` to load the view.
   the song has one writer.
 - **Deleting** releases audio through the backend tool `forget_audio`,
   which only the app's views call.
-- **Settings**: `versions`, how many versions each AI action makes (1 to 4).
+- **Settings**: `versions`, Takes to choose from: how many takes each new
+  piece or change comes as (1 to 4).
 
 After every rebuild that `hearthscale dev` makes, an open view's requests
 fail with "this window hosts no such view" until its tab loads again.
