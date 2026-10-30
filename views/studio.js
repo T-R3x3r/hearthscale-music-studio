@@ -333,7 +333,6 @@ body {
 .ms-lane-volume {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
 }
 
 .ms-switch-button[aria-pressed='true'] {
