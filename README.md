@@ -1,45 +1,62 @@
 # Music studio
 
-Music studio makes music from a description, on this computer, and lets
-you shape it on tracks. Your songs are files you keep.
+Describe a song in a few words, and Music studio makes it on your
+computer. Then shape it on tracks: change a part, add your own sound, mix
+it and export it. Your songs stay in Music studio on your computer.
+
+Music studio is free and needs no account.
 
 ## What you can do
 
-- **Make a song.** Describe it, pick a style and choose Make. With a model
-  that sings, write lyrics by section, or let the chat model write them.
+- **Make a song.** Describe it, pick a style and choose **Make**.
 - **Change a part.** Change a clip's style, redo some of its bars, extend
   it or add an instrument. The clip keeps its own sound as its first take.
-- **Choose a take.** Each new piece or change can come as up to four takes,
-  set in the app's settings. Listen to each and keep the one you like.
+- **Choose a take.** A new piece or change can come as up to four takes.
+  Set how many in Music studio's settings, listen to each and keep the one
+  you like.
 - **Mix on tracks.** Move, loop, trim, cut and fade clips. Set each track's
-  volume and pan, give it a warmer, brighter or roomier sound, mute it
-  with M or hear it alone with S. Undo every step, and save versions of
-  the song.
-- **Bring your own sound.** Import a recording, drop it on the studio or
-  open it with Music studio, and record your voice with a count-in.
-- **Split into stems.** Put the vocals, drums, bass and the rest of any
-  clip on tracks of their own.
+  volume and pan, make it warmer, brighter or roomier, mute it with **M**
+  or hear it alone with **S**. Undo any step, and save versions of a song.
+- **Bring your own sound.** Import a recording, drop a file on the studio
+  or open it with Music studio, and record from your microphone with a
+  count-in.
+- **Split into stems.** Put the vocals, drums, bass and the rest of a clip
+  on tracks of their own.
 - **Keep snippets.** Save a clip as a snippet and drop it into another
-  song, in time and in tune.
+  song. It fits the song's tempo and key.
 - **Ask.** Say what to change, and the assistant beside the timeline does
-  it. Each change is one step of undo.
-- **Export.** Save the song as a WAV file, or each track into a folder.
+  it. Each change is one step you can undo.
+- **Export.** Save the song as a WAV file, or each track as a file of its
+  own in a folder you choose.
 
-## What it needs
+## The models it uses
 
-- A **music model**, chosen for Music studio in its settings. The
-  introduction downloads one that runs on most computers. Models differ:
-  some sing, some make only instrumental music, and only some change
-  existing audio. The studio offers only what the chosen model can do.
-- A **separation model**, such as HTDemucs, to split clips into stems.
-- A **chat model** for lyrics and the assistant.
+Music studio runs models on your Hearthscale Server.
+
+- **A music model** makes and changes the music. When you first open
+  Music studio, its introduction offers Stable Audio 3 Small Music, which
+  runs on most computers: choose **Download** on that card. To use another
+  model, open the model picker at the start of the Make panel's last row.
+  It shows each model's memory, and **Download** for a model that is not
+  on your computer yet.
+- **Singing** needs a model that sings, such as ACE-Step 1.5. It needs
+  more memory than some computers have. With a model that sings, you can
+  write lyrics by section, or let the chat model write them.
+- Each music model does different things. Some only make music; others
+  also change a clip, extend it or add an instrument. Music studio shows
+  only what the chosen model can do.
+- **A separation model**, such as HTDemucs, splits clips into stems.
+- **A chat model** writes lyrics and answers in the assistant.
+
+Choose the separation and chat models on Music studio's page in
+**Settings → Apps**.
 
 ## What it asks for
 
-- **Its own data**: your songs, versions and snippets, in the app's
-  database on this computer.
-- **Model jobs**: music and stems made by the models you choose.
-- **Models**: the list of models, and the download of one when you ask.
-- **The microphone**: only while you record.
-- **Folders you choose**: only when you export tracks to a folder.
-- **Conversations**: the assistant's chats.
+- **Its own data:** your songs, versions and snippets, in Music studio's
+  database on your computer.
+- **Model jobs:** the music and stems the models make.
+- **Models:** the list of models, and a download when you ask for one.
+- **The microphone:** only while you record.
+- **Folders you choose:** only when you export tracks to a folder.
+- **Conversations:** the assistant's chats.
