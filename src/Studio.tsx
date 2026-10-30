@@ -1224,6 +1224,7 @@ export function Studio() {
               />
             ) : (
               <MakePanel
+                key={song.id}
                 models={models}
                 covered={crowded && (library !== null || chat)}
                 onMake={(request) => void make(request)}
@@ -1362,10 +1363,14 @@ function freshTitle(rows: SongRow[]): string {
   return `Song ${n}`;
 }
 
+/** Words that only join others, which a short name never ends on. */
+const JOINS = new Set(['a', 'an', 'and', 'at', 'by', 'for', 'in', 'of', 'on', 'or', 'over', 'the', 'to', 'with']);
+
 /** The name of the track a new piece goes on: the first words of its description, else its styles. */
 function trackName(request: MakeRequest): string {
-  const words = request.words.trim().split(/\s+/).filter(Boolean).slice(0, 3).join(' ').replace(/[,.;:!?]+$/, '');
-  return sentenceCase(words || request.styles.join(', '));
+  const words = request.words.split(/[,.;:!?]/)[0]!.trim().split(/\s+/).filter(Boolean).slice(0, 3);
+  while (words.length > 1 && JOINS.has(words.at(-1)!.toLowerCase())) words.pop();
+  return sentenceCase(words.join(' ') || request.styles.join(', '));
 }
 
 function clock(seconds: number): string {
