@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Button, Chip, Icon, IconButton, Meter, Popover, SettingsSelect, Slider, Toggle, useFloatingTips } from '@hearthscale/app-ui';
+import { Button, Chip, Icon, IconButton, Label, Meter, Notice, Popover, SettingsSelect, Slider, Toggle, useFloatingTips } from '@hearthscale/app-ui';
 import type { ModelCard } from '@hearthscale/app';
 import { reason } from './bridge';
 import type { MusicModels } from './models';
@@ -60,7 +60,7 @@ export function MakePanel({ models, card, onPick, onMake, lyrics, onLyrics }: Pr
         <LyricsEditor about={[words, ...styles].join(', ')} sections={lyrics} onChange={onLyrics} />
       )}
       <textarea
-        className="ms-words"
+        className="ms-words hs-ta"
         aria-label="Describe the music"
         placeholder="Describe the music"
         value={words}
@@ -77,6 +77,7 @@ export function MakePanel({ models, card, onPick, onMake, lyrics, onLyrics }: Pr
       <div className="ms-make-row">
         {length !== null && can?.length && (
           <div className="ms-length">
+            <Label>Length</Label>
             <Slider
               label="Length"
               min={can.length.min}
@@ -99,39 +100,40 @@ export function MakePanel({ models, card, onPick, onMake, lyrics, onLyrics }: Pr
             Lyrics
           </Button>
         )}
-        <div className="ms-grow" />
-        <SettingsSelect
-          label="Music model"
-          value={card.id}
-          options={models.ready.map((c) => ({ value: c.id, label: c.label }))}
-          onPick={onPick}
-          minWidth={200}
-        />
-        {models.offered.length > 0 && (
-          <span ref={more}>
-            <IconButton aria-label="More music models" onClick={() => setShowMore(true)}>
-              <Icon name="add-circle-line" size={16} />
-            </IconButton>
+        <div className="ms-go">
+          <SettingsSelect
+            label="Music model"
+            value={card.id}
+            options={models.ready.map((c) => ({ value: c.id, label: c.label }))}
+            onPick={onPick}
+            minWidth={200}
+          />
+          {models.offered.length > 0 && (
+            <span ref={more}>
+              <IconButton aria-label="More music models" onClick={() => setShowMore(true)}>
+                <Icon name="add-circle-line" size={16} />
+              </IconButton>
+            </span>
+          )}
+          {showMore && more.current && (
+            <Popover anchor={more.current} placement="top-end" label="More music models" onDismiss={() => setShowMore(false)}>
+              <div className="ms-more-models">
+                <Installs models={models} />
+              </div>
+            </Popover>
+          )}
+          <span className="hs-tipwrap" {...make.hover}>
+            <Button
+              variant="primary"
+              icon={<Icon name="music-ai-line" size={14} />}
+              disabled={!ready}
+              onClick={() => onMake({ card, words, styles, seconds: length, instrumental })}
+            >
+              Make
+            </Button>
+            {make.tip}
           </span>
-        )}
-        {showMore && more.current && (
-          <Popover anchor={more.current} placement="top-end" label="More music models" onDismiss={() => setShowMore(false)}>
-            <div className="ms-more-models">
-              <Installs models={models} />
-            </div>
-          </Popover>
-        )}
-        <span className="hs-tipwrap" {...make.hover}>
-          <Button
-            variant="primary"
-            icon={<Icon name="music-ai-line" size={14} />}
-            disabled={!ready}
-            onClick={() => onMake({ card, words, styles, seconds: length, instrumental })}
-          >
-            Make
-          </Button>
-          {make.tip}
-        </span>
+        </div>
       </div>
     </div>
   );
@@ -170,7 +172,7 @@ function Installs({ models }: { models: MusicModels }) {
   };
   return (
     <>
-      {failure && <div className="ms-failure">{failure}</div>}
+      {failure && <Notice>{failure}</Notice>}
       <div className="ms-installs">
         {models.offered.map((card) => {
           const download = models.downloads[card.id];

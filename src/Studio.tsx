@@ -6,7 +6,10 @@ import {
   Icon,
   IconButton,
   MenuSurface,
+  MDivider,
   MItem,
+  Notice,
+  SegmentedControl,
   SettingsSelect,
   ShellConfirm,
   TextInput,
@@ -117,7 +120,14 @@ const SAME_TEMPO = 0.01;
 /** The most edits undo goes back through. */
 const HISTORY = 200;
 
-interface Notice {
+/** The query of a tile too narrow for every control of the toolbar. */
+const NARROW = '(max-width: 639px)';
+
+/** The query of a tile too narrow to dock a panel beside the timeline. */
+const CROWDED = '(max-width: 959px)';
+
+/** A done action the toast confirms, with the one thing to do about it. */
+interface Done {
   text: string;
   action?: { label: string; onPress: () => void };
 }
@@ -137,13 +147,16 @@ export function Studio() {
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [jobs, setJobs] = useState<Record<string, Job>>({});
-  const [notice, setNotice] = useState<Notice | null>(null);
+  const [done, setDone] = useState<Done | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const narrow = useMatch(NARROW);
+  const crowded = useMatch(CROWDED);
   const [deleting, setDeleting] = useState<SongRow | null>(null);
   const [picked, setPicked] = useState<string | null>(() => localStorage.getItem('music-model'));
   const [range, setRange] = useState<Range | null>(null);
   const [editing, setEditing] = useState<{ kind: EditKind; clip: string } | null>(null);
-  const [sidebar, setSidebar] = useState(true);
-  const [panel, setPanel] = useState<'snippets' | 'assistant' | null>(null);
+  const [chat, setChat] = useState(false);
+  const [library, setLibrary] = useState<'songs' | 'snippets' | null>(() => (matchMedia(CROWDED).matches ? null : 'songs'));
   const [selected, setSelected] = useState<string | null>(null);
   const [zoom, setZoom] = useState(3);
   const [snippets, setSnippets] = useState<Snippet[]>([]);
@@ -165,7 +178,7 @@ export function Studio() {
   const selectedRef = useRef<string | null>(null);
   selectedRef.current = selected;
 
-  const fail = useCallback((error: unknown) => setNotice({ text: reason(error) }), []);
+  const fail = useCallback((error: unknown) => setProblem(reason(error)), []);
 
   const refreshRows = useCallback(async () => {
     setRows(await listSongs());
@@ -298,7 +311,7 @@ export function Studio() {
         if (!isOver(job)) return;
         const pending = songRef.current?.pending.find((p) => p.job === job.id);
         const onAudio = pending && (pending.split || songRef.current?.takes[clipOf(songRef.current, pending.clip)?.take ?? '']);
-        if (job.status === 'failed' && onAudio) setNotice({ text: job.error ?? 'The job failed.' });
+        if (job.status === 'failed' && onAudio) setProblem(job.error ?? 'The job failed.');
         if (songRef.current?.pending.some((p) => p.job === job.id)) {
           void change(async (s) => withTempo(await settle(s, job, engine.current!)));
           return;
@@ -522,9 +535,13 @@ export function Studio() {
     for (const file of files) {
       try {
         const mediaType = file.type || mediaTypeOf(file.name);
-        if (!mediaType) throw new Error(`${file.name} is no sound file this app reads.`);
+        const unreadable = new Error(`${file.name} is no sound file this app reads.`);
+        if (!mediaType) throw unreadable;
         const asset = await upload(file.name, mediaType, file);
-        const buffer = await engine.current!.buffer(asset);
+        const buffer = await engine.current!.buffer(asset).catch(async () => {
+          await forget([asset], null, 'Import');
+          throw unreadable;
+        });
         const tempo = songRef.current?.tempo ?? (await findTempo(buffer));
         await edit((s) => {
           const take = newId();
@@ -715,7 +732,7 @@ export function Studio() {
     try {
       await saveSnippet(snippet);
       setSnippets(await listSnippets());
-      setPanel('snippets');
+      setLibrary('snippets');
     } catch (error) {
       fail(error);
     }
@@ -783,7 +800,7 @@ export function Studio() {
     try {
       await saveVersion(current, newId(), name);
       setVersions(await listVersions(current.id));
-      setNotice({ text: 'Version saved.' });
+      setDone({ text: 'Version saved.' });
     } catch (error) {
       fail(error);
     }
@@ -807,7 +824,7 @@ export function Studio() {
       const name = `${safeName(current.title) || 'Song'}.wav`;
       const save = () => void saveFile(name, 'audio/wav', file).catch(fail);
       if (Date.now() - pressed < CLICK_WINDOW_MS) save();
-      else setNotice({ text: 'The song is ready.', action: { label: 'Save', onPress: save } });
+      else setDone({ text: 'The song is ready.', action: { label: 'Save', onPress: save } });
     } catch (error) {
       fail(error);
     }
@@ -833,10 +850,10 @@ export function Studio() {
       }
       const save = () =>
         void tool('export_parts', { root: mount.handle, files }, 'Save tracks').then(
-          () => setNotice({ text: 'Tracks saved.' }),
+          () => setDone({ text: 'Tracks saved.' }),
           fail,
         );
-      setNotice({ text: 'The tracks are ready.', action: { label: 'Save', onPress: save } });
+      setDone({ text: 'The tracks are ready.', action: { label: 'Save', onPress: save } });
     } catch (error) {
       fail(error);
     }
@@ -891,116 +908,86 @@ export function Studio() {
   const locale = navigator.language;
 
   return (
-    <div className="ms-studio">
-      {sidebar && (
-        <aside className="ms-sidebar">
-          <div className="ms-sidebar-head">
-            <IconButton aria-label="Hide songs" onClick={() => setSidebar(false)}>
-              <Icon name="side-narrow" size={16} />
+    <div
+      className="ms-studio"
+      data-swatch="slate"
+      data-narrow={narrow || undefined}
+      data-crowded={crowded || undefined}
+      onDragOver={(event) => {
+        if (song && event.dataTransfer.types.includes('Files')) event.preventDefault();
+      }}
+      onDrop={(event) => {
+        if (!song || event.dataTransfer.files.length === 0) return;
+        event.preventDefault();
+        void importFiles([...event.dataTransfer.files]);
+      }}
+    >
+      <header className="ms-top">
+        {song && (
+          <>
+            <button
+              type="button"
+              className={narrow ? 'ms-toggle' : 'ms-toggle ms-toggle-text'}
+              aria-label={narrow ? 'Ask' : undefined}
+              aria-pressed={chat}
+              onClick={() => setChat((c) => !c)}
+            >
+              <Icon name="chat-smile-ai-line" size={14} />
+              {!narrow && 'Ask'}
+            </button>
+            <input
+              className="ms-title"
+              aria-label="Song title"
+              value={song.title}
+              onChange={(event) => {
+                const title = event.target.value;
+                void change((s) => ({ ...s, title }));
+              }}
+            />
+          </>
+        )}
+        <div className="hs-flex-spacer" />
+        {song && (
+          <>
+            <IconButton aria-label="Undo" disabled={past.current.length === 0} onClick={() => void undo()}>
+              <Icon name="arrow-go-back-line" size={16} />
             </IconButton>
-          </div>
-          <Button variant="secondary" fullWidth icon={<Icon name="add-line" size={14} />} onClick={() => void createSong()}>
-            New song
-          </Button>
-          <div className="ms-songs">
-            {rows.map((row) => (
-              <div key={row.id} className="ms-song-row" data-selected={row.id === song?.id || undefined}>
-                <button type="button" className="ms-song-open" onClick={() => void open(row.id)}>
-                  <Icon name="music-2-line" size={14} />
-                  <span className="ms-song-title">{row.title}</span>
-                </button>
-                <IconButton size="sm" aria-label={`Delete ${row.title}`} onClick={() => setDeleting(row)}>
-                  <Icon name="delete-bin-line" size={14} />
-                </IconButton>
-              </div>
-            ))}
-          </div>
-        </aside>
-      )}
-      <main
-        className="ms-main"
-        onDragOver={(event) => {
-          if (song && event.dataTransfer.types.includes('Files')) event.preventDefault();
-        }}
-        onDrop={(event) => {
-          if (!song || event.dataTransfer.files.length === 0) return;
-          event.preventDefault();
-          void importFiles([...event.dataTransfer.files]);
-        }}
-      >
-        <header className="ms-top">
-          {!sidebar && (
-            <IconButton aria-label="Show songs" onClick={() => setSidebar(true)}>
-              <Icon name="side-wide" size={16} />
+            <IconButton aria-label="Redo" disabled={future.current.length === 0} onClick={() => void redo()}>
+              <Icon name="arrow-go-forward-line" size={16} />
             </IconButton>
-          )}
-          {song && (
-            <>
-              <input
-                className="ms-title"
-                aria-label="Song title"
-                value={song.title}
-                onChange={(event) => {
-                  const title = event.target.value;
-                  void change((s) => ({ ...s, title }));
-                }}
-              />
-              <div className="ms-tempo">
-                <TextInput
-                  variant="number"
-                  aria-label="Tempo"
-                  placeholder="Tempo"
-                  min={40}
-                  max={240}
-                  value={song.tempo ?? ''}
-                  onChange={(event) => {
-                    const value = Number(event.target.value);
-                    const tempo = event.target.value === '' || !Number.isFinite(value) ? null : Math.min(240, Math.max(40, value));
-                    void edit((s) => ({ ...s, tempo }));
-                  }}
-                />
-                <span className="ms-dim">BPM</span>
-              </div>
-              <SettingsSelect
-                label="Key"
-                placeholder="Key"
-                value={song.key ?? ''}
-                options={[{ value: '', label: 'Any key' }, ...KEYS.map((k) => ({ value: k, label: k }))]}
-                onPick={(key) => void edit((s) => ({ ...s, key: key || null }))}
-                menuHeight={320}
-              />
-              <div className="ms-grow" />
-              <IconButton aria-label="Undo" disabled={past.current.length === 0} onClick={() => void undo()}>
-                <Icon name="arrow-go-back-line" size={16} />
-              </IconButton>
-              <IconButton aria-label="Redo" disabled={future.current.length === 0} onClick={() => void redo()}>
-                <Icon name="arrow-go-forward-line" size={16} />
-              </IconButton>
-              <Button variant="secondary" icon={<Icon name="upload-2-line" size={14} />} onClick={() => picker.current?.click()}>
+            <input
+              ref={picker}
+              type="file"
+              accept="audio/*,.wav,.mp3,.flac,.ogg,.opus,.m4a,.aac,.webm"
+              multiple
+              hidden
+              onChange={(event) => {
+                const files = [...(event.target.files ?? [])];
+                event.target.value = '';
+                void importFiles(files);
+              }}
+            />
+            {!narrow && (
+              <Button variant="ghost" icon={<Icon name="upload-2-line" size={14} />} onClick={() => picker.current?.click()}>
                 Import
               </Button>
-              <input
-                ref={picker}
-                type="file"
-                accept="audio/*,.wav,.mp3,.flac,.ogg,.opus,.m4a,.aac,.webm"
-                multiple
-                hidden
-                onChange={(event) => {
-                  const files = [...(event.target.files ?? [])];
-                  event.target.value = '';
-                  void importFiles(files);
-                }}
-              />
-              <Versions
-                versions={versions}
-                locale={locale}
-                onOpen={() => void listVersions(song.id).then(setVersions, fail)}
-                onSave={(name) => void keepVersion(name)}
-                onRestore={(version) => void restoreVersion(version)}
-              />
+            )}
+            <Versions
+              compact={narrow}
+              versions={versions}
+              locale={locale}
+              onOpen={() => void listVersions(song.id).then(setVersions, fail)}
+              onSave={(name) => void keepVersion(name)}
+              onRestore={(version) => void restoreVersion(version)}
+            />
+            {narrow ? (
+              <IconButton aria-label="More" onClick={(event) => setExportMenu(anchorFrom('more', event))}>
+                <Icon name="more-line" size={16} />
+              </IconButton>
+            ) : (
               <span className="hs-tipwrap" {...exportTip.hover}>
                 <Button
-                  variant="secondary"
+                  variant="ghost"
                   icon={<Icon name="download-2-line" size={14} />}
                   disabled={songSeconds(song) === 0}
                   onClick={(event) => setExportMenu(anchorFrom('export', event))}
@@ -1009,161 +996,195 @@ export function Studio() {
                 </Button>
                 {exportTip.tip}
               </span>
-              {exportMenu && (
-                <MenuSurface anchor={exportMenu} onDismiss={() => setExportMenu(null)}>
-                  <MItem
-                    icon={<Icon name="music-2-line" size={14} />}
-                    label="The song"
-                    onClick={() => {
-                      setExportMenu(null);
-                      void exportSong();
-                    }}
-                  />
-                  <MItem
-                    icon={<Icon name="folder-music-line" size={14} />}
-                    label="Each track into a folder"
-                    onClick={() => {
-                      setExportMenu(null);
-                      void exportTracks();
-                    }}
-                  />
-                </MenuSurface>
-              )}
-              <IconButton
-                aria-label={panel === 'snippets' ? 'Hide snippets' : 'Show snippets'}
-                onClick={() => setPanel((p) => (p === 'snippets' ? null : 'snippets'))}
-              >
-                <Icon name="bookmark-line" size={16} />
-              </IconButton>
-              <Button
-                variant={panel === 'assistant' ? 'primary' : 'secondary'}
-                icon={<Icon name="chat-smile-2-line" size={14} />}
-                onClick={() => setPanel((p) => (p === 'assistant' ? null : 'assistant'))}
-              >
-                Ask
-              </Button>
-            </>
-          )}
-        </header>
-        {song && (
-          <div className="ms-transport">
-            <IconButton aria-label="Back to the start" onClick={() => seek(0)}>
-              <Icon name="skip-back-line" size={16} />
-            </IconButton>
-            <span className="hs-tipwrap" {...playTip.hover}>
-              <Button variant="primary" icon={<Icon name={playing ? 'stop-fill' : 'play-fill'} size={14} />} onClick={() => void togglePlay()}>
-                {playing ? 'Stop' : 'Play'}
-              </Button>
-              {playTip.tip}
-            </span>
-            <Button
-              variant={recordingNow ? 'danger' : 'secondary'}
-              icon={<Icon name={recordingNow ? 'stop-fill' : 'record-circle-line'} size={14} />}
-              onClick={() => void record()}
-            >
-              {recordingNow ? 'Stop recording' : 'Record'}
+            )}
+            {exportMenu && (
+              <MenuSurface anchor={exportMenu} onDismiss={() => setExportMenu(null)}>
+                {narrow && (
+                  <>
+                    <MItem
+                      icon={<Icon name="upload-2-line" size={14} />}
+                      label="Import"
+                      onClick={() => {
+                        setExportMenu(null);
+                        picker.current?.click();
+                      }}
+                    />
+                    <MDivider />
+                  </>
+                )}
+                <MItem
+                  icon={<Icon name="music-2-line" size={14} />}
+                  label="Export the song"
+                  disabled={songSeconds(song) === 0}
+                  onClick={() => {
+                    setExportMenu(null);
+                    void exportSong();
+                  }}
+                />
+                <MItem
+                  icon={<Icon name="folder-music-line" size={14} />}
+                  label="Export each track into a folder"
+                  disabled={songSeconds(song) === 0}
+                  onClick={() => {
+                    setExportMenu(null);
+                    void exportTracks();
+                  }}
+                />
+              </MenuSurface>
+            )}
+          </>
+        )}
+        <button
+          type="button"
+          className={narrow ? 'ms-toggle' : 'ms-toggle ms-toggle-text'}
+          aria-label={narrow ? 'Library' : undefined}
+          aria-pressed={library !== null}
+          onClick={() => setLibrary((l) => (l ? null : 'songs'))}
+        >
+          <Icon name="play-list-2-line" size={14} />
+          {!narrow && 'Library'}
+        </button>
+      </header>
+      {song && (
+        <div className="ms-transport">
+          <IconButton aria-label="Back to the start" onClick={() => seek(0)}>
+            <Icon name="skip-back-line" size={16} />
+          </IconButton>
+          <span className="hs-tipwrap" {...playTip.hover}>
+            <Button variant="primary" icon={<Icon name={playing ? 'stop-line' : 'play-line'} size={14} />} onClick={() => void togglePlay()}>
+              {playing ? 'Stop' : 'Play'}
             </Button>
-            <button
-              type="button"
-              className="ms-toggle"
-              aria-label="Metronome"
-              aria-pressed={metronome}
-              onClick={() => {
-                localStorage.setItem('music-metronome', metronome ? 'off' : 'on');
-                setMetronome(!metronome);
+            {playTip.tip}
+          </span>
+          <Button
+            variant={recordingNow ? 'danger' : 'secondary'}
+            icon={<Icon name={recordingNow ? 'stop-line' : 'record-circle-line'} size={14} />}
+            onClick={() => void record()}
+          >
+            {recordingNow ? 'Stop recording' : 'Record'}
+          </Button>
+          <button
+            type="button"
+            className="ms-toggle"
+            aria-label="Metronome"
+            aria-pressed={metronome}
+            onClick={() => {
+              localStorage.setItem('music-metronome', metronome ? 'off' : 'on');
+              setMetronome(!metronome);
+            }}
+          >
+            <Icon name="timer-flash-line" size={14} />
+          </button>
+          <span className="ms-num ms-clock">{clock(position)}</span>
+          <div className="ms-tempo">
+            <TextInput
+              variant="number"
+              aria-label="Tempo"
+              placeholder="Tempo"
+              min={40}
+              max={240}
+              value={song.tempo ?? ''}
+              onChange={(event) => {
+                const value = Number(event.target.value);
+                const tempo = event.target.value === '' || !Number.isFinite(value) ? null : Math.min(240, Math.max(40, value));
+                void edit((s) => ({ ...s, tempo }));
               }}
-            >
-              <Icon name="timer-flash-line" size={14} />
-            </button>
-            <button
-              type="button"
-              className="ms-toggle"
-              aria-label="Louder"
-              aria-pressed={song.louder}
-              onClick={() => void edit((s) => ({ ...s, louder: !s.louder }))}
-            >
-              <Icon name="volume-up-line" size={14} />
-            </button>
-            <span className="ms-mono ms-clock">{clock(position)}</span>
-            <div className="ms-grow" />
-            <IconButton aria-label="Zoom out" disabled={zoom === 0} onClick={() => setZoom((z) => Math.max(0, z - 1))}>
-              <Icon name="zoom-out-line" size={16} />
-            </IconButton>
-            <IconButton aria-label="Zoom in" disabled={zoom === ZOOMS.length - 1} onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))}>
-              <Icon name="zoom-in-line" size={16} />
-            </IconButton>
+            />
+            <span className="ms-dim">BPM</span>
           </div>
+          <SettingsSelect
+            label="Key"
+            placeholder="Key"
+            value={song.key ?? ''}
+            options={[{ value: '', label: 'Any key' }, ...KEYS.map((k) => ({ value: k, label: k }))]}
+            onPick={(key) => void edit((s) => ({ ...s, key: key || null }))}
+            menuHeight={320}
+          />
+          <button
+            type="button"
+            className="ms-toggle"
+            aria-label="Louder"
+            aria-pressed={song.louder}
+            onClick={() => void edit((s) => ({ ...s, louder: !s.louder }))}
+          >
+            <Icon name="volume-up-line" size={14} />
+          </button>
+          <div className="hs-flex-spacer" />
+          <IconButton aria-label="Zoom out" disabled={zoom === 0} onClick={() => setZoom((z) => Math.max(0, z - 1))}>
+            <Icon name="zoom-out-line" size={16} />
+          </IconButton>
+          <IconButton aria-label="Zoom in" disabled={zoom === ZOOMS.length - 1} onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))}>
+            <Icon name="zoom-in-line" size={16} />
+          </IconButton>
+        </div>
+      )}
+      {problem && (
+        <div className="ms-problem">
+          <Notice>
+            {problem}
+            <button type="button" className="hs-link" onClick={() => setProblem(null)}>
+              Close
+            </button>
+          </Notice>
+        </div>
+      )}
+      <div className="ms-body">
+        {song && chat && (
+          <aside className="ms-dock ms-dock-chat">
+            <Assistant title={song.title} context={songContext(song, card, edits)} />
+          </aside>
         )}
         {song ? (
-          <div className="ms-body">
-            <div className="ms-work">
-              {song.tracks.length > 0 ? (
-                <Timeline
-                  song={song}
-                  engine={engine.current}
-                  position={position}
-                  pixelsPerSecond={ZOOMS[zoom]!}
-                  jobs={jobs}
-                  selected={selected}
-                  onSelect={setSelected}
-                  onSeek={seek}
-                  onEdit={(update) => void edit(update)}
-                  onKeep={(clip) => void edit((s) => withClip(s, clip, (c) => ({ ...c, versions: [], expected: 0 })))}
-                  onRetry={(clip) => void retry(clip)}
-                  onSnippet={(clip) => void keepSnippet(clip)}
-                  onSplit={(clip) => void split(clip)}
-                  range={range}
-                  onRange={setRange}
-                  edits={edits}
-                  onEditStart={(kind, clip) => setEditing({ kind, clip })}
-                  onDropSnippet={(id, track, beat) => void dropSnippet(id, track, beat)}
-                />
-              ) : (
-                <div className="ms-empty">
-                  <EmptyState icon={<Icon name="music-ai-line" size={30} />} title="Describe a song to make it" />
-                </div>
-              )}
-              {editing && editedClip ? (
-                <EditPanel
-                  key={`${editing.kind}-${editing.clip}`}
-                  kind={editing.kind}
-                  clip={editing.clip}
-                  words={song.takes[editedClip.take]?.words ?? ''}
-                  bars={barsOf(song, editedClip, range)}
-                  longest={longestAdd}
-                  onGo={(request) => void performEdit(request)}
-                  onClose={() => setEditing(null)}
-                />
-              ) : (
-                <MakePanel
-                  models={models}
-                  card={card}
-                  onPick={(id) => {
-                    localStorage.setItem('music-model', id);
-                    setPicked(id);
-                  }}
-                  onMake={(request) => void make(request)}
-                  lyrics={song.lyrics}
-                  onLyrics={(lyrics) => void change((s) => ({ ...s, lyrics }))}
-                />
-              )}
-            </div>
-            {panel === 'snippets' && (
-              <aside className="ms-panel">
-                <div className="ms-panel-head ms-strong">Snippets</div>
-                <Snippets
-                  snippets={snippets}
-                  previewing={previewing}
-                  onPreview={preview}
-                  onRename={renameSnippet}
-                  onDelete={(snippet) => void removeSnippet(snippet)}
-                />
-              </aside>
+          <div className="ms-work">
+            {song.tracks.length > 0 ? (
+              <Timeline
+                song={song}
+                engine={engine.current}
+                position={position}
+                pixelsPerSecond={ZOOMS[zoom]!}
+                jobs={jobs}
+                selected={selected}
+                onSelect={setSelected}
+                onSeek={seek}
+                onEdit={(update) => void edit(update)}
+                onKeep={(clip) => void edit((s) => withClip(s, clip, (c) => ({ ...c, versions: [], expected: 0 })))}
+                onRetry={(clip) => void retry(clip)}
+                onSnippet={(clip) => void keepSnippet(clip)}
+                onSplit={(clip) => void split(clip)}
+                range={range}
+                onRange={setRange}
+                edits={edits}
+                onEditStart={(kind, clip) => setEditing({ kind, clip })}
+                onDropSnippet={(id, track, beat) => void dropSnippet(id, track, beat)}
+              />
+            ) : (
+              <div className="ms-empty">
+                <EmptyState icon={<Icon name="music-ai-line" size={30} />} title="Describe a song to make it" />
+              </div>
             )}
-            {panel === 'assistant' && (
-              <aside className="ms-panel ms-assistant">
-                <Assistant title={song.title} context={songContext(song, card, edits)} />
-              </aside>
+            {editing && editedClip ? (
+              <EditPanel
+                key={`${editing.kind}-${editing.clip}`}
+                kind={editing.kind}
+                clip={editing.clip}
+                words={song.takes[editedClip.take]?.words ?? ''}
+                bars={barsOf(song, editedClip, range)}
+                longest={longestAdd}
+                onGo={(request) => void performEdit(request)}
+                onClose={() => setEditing(null)}
+              />
+            ) : (
+              <MakePanel
+                models={models}
+                card={card}
+                onPick={(id) => {
+                  localStorage.setItem('music-model', id);
+                  setPicked(id);
+                }}
+                onMake={(request) => void make(request)}
+                lyrics={song.lyrics}
+                onLyrics={(lyrics) => void change((s) => ({ ...s, lyrics }))}
+              />
             )}
           </div>
         ) : (
@@ -1175,7 +1196,48 @@ export function Studio() {
             </EmptyState>
           </div>
         )}
-      </main>
+        {library && (
+          <aside className="ms-dock ms-dock-library">
+            <SegmentedControl
+              label="Library"
+              value={library}
+              options={[
+                { value: 'songs', label: 'Songs' },
+                { value: 'snippets', label: 'Snippets' },
+              ]}
+              onChange={setLibrary}
+            />
+            {library === 'songs' ? (
+              <>
+                <Button variant="secondary" fullWidth icon={<Icon name="add-line" size={14} />} onClick={() => void createSong()}>
+                  New song
+                </Button>
+                <div className="ms-songs">
+                  {rows.map((row) => (
+                    <div key={row.id} className="ms-song-row hs-hovbox" data-selected={row.id === song?.id || undefined}>
+                      <button type="button" className="ms-song-open" onClick={() => void open(row.id)}>
+                        <Icon name="music-2-line" size={14} />
+                        <span className="ms-song-title">{row.title}</span>
+                      </button>
+                      <IconButton size="sm" aria-label={`Delete ${row.title}`} onClick={() => setDeleting(row)}>
+                        <Icon name="delete-bin-line" size={14} />
+                      </IconButton>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <Snippets
+                snippets={snippets}
+                previewing={previewing}
+                onPreview={preview}
+                onRename={renameSnippet}
+                onDelete={(snippet) => void removeSnippet(snippet)}
+              />
+            )}
+          </aside>
+        )}
+      </div>
       {deleting && (
         <ShellConfirm
           title={`Delete ${deleting.title}?`}
@@ -1186,9 +1248,9 @@ export function Studio() {
           onCancel={() => setDeleting(null)}
         />
       )}
-      {notice && (
-        <Toast action={notice.action} onClose={() => setNotice(null)}>
-          {notice.text}
+      {done && (
+        <Toast action={done.action} onClose={() => setDone(null)}>
+          {done.text}
         </Toast>
       )}
     </div>
@@ -1241,6 +1303,18 @@ function mediaTypeOf(name: string): string | undefined {
 /** A name that every system takes as a file name. */
 function safeName(name: string): string {
   return name.replace(/[\\/:*?"<>|]+/g, ' ').trim();
+}
+
+/** Whether the view matches a media query, kept current as the tile changes size. */
+function useMatch(media: string): boolean {
+  const [matches, setMatches] = useState(() => matchMedia(media).matches);
+  useEffect(() => {
+    const query = matchMedia(media);
+    const update = () => setMatches(query.matches);
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, [media]);
+  return matches;
 }
 
 function clock(seconds: number): string {

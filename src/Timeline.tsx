@@ -15,6 +15,7 @@ import {
 } from '@hearthscale/app-ui';
 import type { Job } from '@hearthscale/app';
 import { PEAKS_PER_SECOND, peaks, type Engine } from './audio';
+import { onLookChange } from './bridge';
 import {
   changeTrack,
   clipOf,
@@ -208,7 +209,7 @@ export function Timeline(props: Props) {
         >
           <div className="ms-ruler" onPointerDown={sweepStart} onPointerMove={sweepMove} onPointerUp={sweepEnd}>
             {Array.from({ length: bars }, (_, i) => (
-              <span key={i} className="ms-bar" style={{ left: i * bar * pps }}>
+              <span key={i} className="ms-bar ms-num" style={{ left: i * bar * pps }}>
                 {i + 1}
               </span>
             ))}
@@ -323,7 +324,7 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
               Making
             </StatusWord>
           ) : (
-            <StatusWord tone="bad">Not made</StatusWord>
+            <StatusWord tone="bad">Failed</StatusWord>
           )}
           {hold.tip}
         </span>
@@ -368,7 +369,14 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
       onClick={stop}
       onPointerDown={(event) => onPress(event, clip.id, 'move')}
     >
-      <Wave asset={take.asset} offset={clip.offset} length={clip.length} loops={clip.loops} engine={engine} />
+      <Wave
+        asset={take.asset}
+        offset={clip.offset}
+        length={clip.length}
+        loops={clip.loops}
+        engine={engine}
+        played={Math.min(width, Math.max(0, (position - start) * pps))}
+      />
       {Array.from({ length: clip.loops - 1 }, (_, i) => (
         <span key={i} className="ms-notch" style={{ left: (i + 1) * clip.length * pps }} />
       ))}
@@ -391,7 +399,7 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
             <IconButton size="sm" aria-label="Previous version" onClick={() => step(-1)}>
               <Icon name="arrow-left-s-line" size={14} />
             </IconButton>
-            <span className="ms-mono">
+            <span className="ms-num">
               {index + 1} / {total}
             </span>
             <IconButton size="sm" aria-label="Next version" onClick={() => step(1)}>
@@ -480,38 +488,58 @@ interface WaveProps {
   length: number;
   loops: number;
   engine: Engine;
+  /** How far into the clip the playhead is, in pixels. */
+  played: number;
 }
 
-function Wave({ asset, offset, length, loops, engine }: WaveProps) {
-  const canvas = useRef<HTMLCanvasElement>(null);
+function Wave({ asset, offset, length, loops, engine, played }: WaveProps) {
+  const base = useRef<HTMLCanvasElement>(null);
+  const done = useRef<HTMLCanvasElement>(null);
+  const look = useLook();
   useEffect(() => {
     let live = true;
     void peaksOf(engine, asset).then((points) => {
-      const element = canvas.current;
-      if (!live || !element) return;
-      const scale = window.devicePixelRatio || 1;
-      const width = Math.max(1, Math.round(element.clientWidth * scale));
-      const height = Math.max(1, Math.round(element.clientHeight * scale));
-      element.width = width;
-      element.height = height;
-      const draw = element.getContext('2d');
-      if (!draw) return;
-      draw.fillStyle = getComputedStyle(element).color;
-      const middle = height / 2;
-      const span = length * loops;
-      const at = (x: number) => Math.floor((offset + (((x / width) * span) % length)) * PEAKS_PER_SECOND);
-      for (let x = 0; x < width; x++) {
-        const from = at(x);
-        const to = Math.max(from + 1, at(x + 1));
-        let level = 0;
-        for (let i = from; i < to && i < points.length; i++) level = Math.max(level, points[i]!);
-        const reach = Math.max(scale, level * middle);
-        draw.fillRect(x, middle - reach, 1, reach * 2);
-      }
+      if (!live) return;
+      for (const element of [base.current, done.current]) if (element) paint(element, points, offset, length, loops);
     });
     return () => {
       live = false;
     };
-  }, [asset, offset, length, loops, engine]);
-  return <canvas ref={canvas} className="ms-wave" />;
+  }, [asset, offset, length, loops, engine, look]);
+  return (
+    <div className="ms-wave">
+      <canvas ref={base} />
+      <canvas ref={done} className="ms-wave-played" style={{ clipPath: `inset(0 calc(100% - ${played}px) 0 0)` }} />
+    </div>
+  );
+}
+
+/** Draws the peaks of a clip across the canvas, in the canvas's own text colour. */
+function paint(element: HTMLCanvasElement, points: Float32Array, offset: number, length: number, loops: number) {
+  const scale = window.devicePixelRatio || 1;
+  const width = Math.max(1, Math.round(element.clientWidth * scale));
+  const height = Math.max(1, Math.round(element.clientHeight * scale));
+  element.width = width;
+  element.height = height;
+  const draw = element.getContext('2d');
+  if (!draw) return;
+  draw.fillStyle = getComputedStyle(element).color;
+  const middle = height / 2;
+  const span = length * loops;
+  const at = (x: number) => Math.floor((offset + (((x / width) * span) % length)) * PEAKS_PER_SECOND);
+  for (let x = 0; x < width; x++) {
+    const from = at(x);
+    const to = Math.max(from + 1, at(x + 1));
+    let level = 0;
+    for (let i = from; i < to && i < points.length; i++) level = Math.max(level, points[i]!);
+    const reach = Math.max(scale, level * middle);
+    draw.fillRect(x, middle - reach, 1, reach * 2);
+  }
+}
+
+/** A count that grows with each change of the host's look, so a canvas that read its tokens draws again. */
+function useLook(): number {
+  const [look, setLook] = useState(0);
+  useEffect(() => onLookChange(() => requestAnimationFrame(() => setLook((n) => n + 1))), []);
+  return look;
 }

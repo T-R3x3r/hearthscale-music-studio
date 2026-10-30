@@ -16,7 +16,7 @@ export function Snippets({ snippets, previewing, onPreview, onRename, onDelete }
   return (
     <div className="ms-snippets">
       {snippets.length === 0 && (
-        <div className="ms-dim hs-tipwrap" {...empty.hover}>
+        <div className="ms-quiet hs-tipwrap" {...empty.hover}>
           No snippets yet
           {empty.tip}
         </div>
@@ -24,7 +24,7 @@ export function Snippets({ snippets, previewing, onPreview, onRename, onDelete }
       {snippets.map((snippet) => (
         <div
           key={snippet.id}
-          className="ms-snippet"
+          className="ms-snippet hs-hovbox"
           draggable
           onDragStart={(event) => {
             event.dataTransfer.setData(SNIPPET_DRAG, snippet.id);
@@ -32,7 +32,7 @@ export function Snippets({ snippets, previewing, onPreview, onRename, onDelete }
           }}
         >
           <IconButton size="sm" aria-label={previewing === snippet.id ? 'Stop' : 'Listen'} onClick={() => onPreview(snippet)}>
-            <Icon name={previewing === snippet.id ? 'stop-fill' : 'play-fill'} size={14} />
+            <Icon name={previewing === snippet.id ? 'stop-line' : 'play-line'} size={14} />
           </IconButton>
           <input
             className="ms-snippet-name"
@@ -40,7 +40,7 @@ export function Snippets({ snippets, previewing, onPreview, onRename, onDelete }
             value={snippet.name}
             onChange={(event) => onRename(snippet, event.target.value)}
           />
-          <span className="ms-dim ms-mono">{snippet.length.toFixed(1)} s</span>
+          <span className="ms-dim ms-num">{snippet.length.toFixed(1)} s</span>
           <IconButton size="sm" aria-label={`Delete ${snippet.name}`} onClick={() => onDelete(snippet)}>
             <Icon name="delete-bin-line" size={14} />
           </IconButton>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Chip, Icon, IconButton, Slider, useFloatingTips, type IconName } from '@hearthscale/app-ui';
+import { Button, Chip, Icon, IconButton, Label, Slider, useFloatingTips, type IconName } from '@hearthscale/app-ui';
 import { PARTS } from './edits';
 
 export type EditKind = 'restyle' | 'repaint' | 'longer' | 'add';
@@ -51,13 +51,13 @@ export function EditPanel({ kind, clip, words: start, bars, longest, onGo, onClo
         <Icon name={icon} size={16} />
         <span className="ms-strong">{title}</span>
         {kind === 'repaint' && 'label' in bars && <span className="ms-dim">{bars.label}</span>}
-        <div className="ms-grow" />
+        <div className="hs-flex-spacer" />
         <IconButton size="sm" aria-label="Close" onClick={onClose}>
           <Icon name="close-line" size={14} />
         </IconButton>
       </div>
       <textarea
-        className="ms-words"
+        className="ms-words hs-ta"
         aria-label="Describe the music"
         placeholder="Describe the music"
         value={words}
@@ -76,15 +76,17 @@ export function EditPanel({ kind, clip, words: start, bars, longest, onGo, onClo
       <div className="ms-make-row">
         {kind === 'restyle' && (
           <div className="ms-length">
+            <Label>How different</Label>
             <Slider label="How different" value={change} onChange={setChange} step={0.05} shown={`${Math.round(change * 100)} %`} />
           </div>
         )}
         {kind === 'longer' && (
           <div className="ms-length">
+            <Label>Seconds to add</Label>
             <Slider label="Seconds to add" min={2} max={longest} step={1} value={seconds} onChange={setSeconds} shown={`${seconds} s`} />
           </div>
         )}
-        <div className="ms-grow" />
+        <div className="hs-flex-spacer" />
         <span className="hs-tipwrap" {...go.hover}>
           <Button
             variant="primary"

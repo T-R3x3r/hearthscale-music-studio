@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Icon, IconButton, SettingsSelect, useFloatingTips } from '@hearthscale/app-ui';
+import { Button, Icon, IconButton, Notice, SettingsSelect, useFloatingTips } from '@hearthscale/app-ui';
 import { reason } from './bridge';
 import { rewriteSection, SECTIONS, writeLyrics, type LyricSection, type SectionName } from './lyrics';
 
@@ -42,21 +42,21 @@ export function LyricsEditor({ about, sections, onChange }: Props) {
               options={SECTIONS.map((name) => ({ value: name, label: name }))}
               onPick={(name: SectionName) => set(section.id, { name })}
             />
-            <div className="ms-grow" />
+            <div className="hs-flex-spacer" />
             <IconButton
               size="sm"
               aria-label="Write again"
               disabled={busy !== null || !section.text.trim()}
               onClick={() => void run(section.id, async () => set(section.id, { text: await rewriteSection(about, section, sections) }))}
             >
-              <Icon name={busy === section.id ? 'loader-4-line' : 'refresh-line'} size={14} />
+              <Icon name={busy === section.id ? 'loader-4-line' : 'refresh-line'} size={14} className={busy === section.id ? 'hs-spin' : undefined} />
             </IconButton>
             <IconButton size="sm" aria-label="Remove section" onClick={() => onChange(sections.filter((s) => s.id !== section.id))}>
               <Icon name="close-line" size={14} />
             </IconButton>
           </div>
           <textarea
-            className="ms-words"
+            className="ms-words hs-ta"
             aria-label={`${section.name} lyrics`}
             rows={Math.max(2, section.text.split('\n').length)}
             value={section.text}
@@ -64,13 +64,13 @@ export function LyricsEditor({ about, sections, onChange }: Props) {
           />
         </div>
       ))}
-      {failure && <div className="ms-failure">{failure}</div>}
+      {failure && <Notice>{failure}</Notice>}
       <div className="ms-make-row">
         <span className="hs-tipwrap" {...write.hover}>
           <Button
             variant="secondary"
             size="sm"
-            icon={<Icon name={busy === 'all' ? 'loader-4-line' : 'quill-pen-line'} size={14} />}
+            icon={<Icon name={busy === 'all' ? 'loader-4-line' : 'quill-pen-line'} size={14} className={busy === 'all' ? 'hs-spin' : undefined} />}
             disabled={busy !== null || !about.trim()}
             onClick={() => void run('all', async () => onChange(await writeLyrics(about)))}
           >

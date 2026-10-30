@@ -57,6 +57,18 @@ export async function readOpened(file: OpenedFile): Promise<Uint8Array<ArrayBuff
   return Uint8Array.from(atob(first.blob), (c) => c.charCodeAt(0));
 }
 
+const lookListeners = new Set<() => void>();
+
+/** Runs `listener` after each change of the host context, such as the theme or the colour scheme, until the returned function runs. */
+export function onLookChange(listener: () => void): () => void {
+  lookListeners.add(listener);
+  return () => lookListeners.delete(listener);
+}
+
+app.onhostcontextchanged = () => {
+  for (const listener of lookListeners) listener();
+};
+
 function context(): Partial<ViewHostContext> {
   return (app.getHostContext() ?? {}) as Partial<ViewHostContext>;
 }

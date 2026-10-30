@@ -36,6 +36,15 @@ Close and open the app's tab again after `npm run build` to load the view.
 
 ## How it works
 
+- **Layout** (`src/Studio.tsx`, `src/ui.css`): the layout of Suno Studio
+  in Hearthscale's styling. A toolbar with the song and its actions, the
+  transport above the timeline, the Make or edit panel under it, the
+  assistant docked on the left and the library of songs and snippets on
+  the right. Under 960 px the docks float over the timeline and the
+  library starts closed; under 640 px the toolbar keeps its rarer actions
+  in a menu. Every length, colour and type size is a token of the UI kit.
+  Waveforms are drawn on a canvas in `--mut`, the played part in `--text`,
+  and drawn again when the host's look changes.
 - **Songs** live in the app's SQLite database (`db` in `uses`), one row per
   song with its document as JSON (`src/library.ts`, `src/song.ts`). A clip's
   place is in beats, so a change of tempo moves it with the song.
