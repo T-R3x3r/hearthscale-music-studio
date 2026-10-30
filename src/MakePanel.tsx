@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Chip, Icon, Label, Meter, ModelAvatar, Notice, Slider, Toggle, useFloatingTips } from '@hearthscale/app-ui';
 import type { ModelCard } from '@hearthscale/app';
 import { onboarding } from '../app.json';
@@ -31,18 +31,25 @@ interface Props {
   /** Whether a dock floats over the panel, where the shell would draw the model picker over it. */
   covered: boolean;
   onMake: (request: MakeRequest) => void;
+  /** What the panel held when it last closed, which it starts from, and where it keeps each change. */
+  draft: MakeRequest;
+  onDraft: (draft: MakeRequest) => void;
   lyrics: LyricSection[];
   onLyrics: (sections: LyricSection[]) => void;
 }
 
-export function MakePanel({ models, covered, onMake, lyrics, onLyrics }: Props) {
+export function MakePanel({ models, covered, onMake, draft, onDraft, lyrics, onLyrics }: Props) {
   const { card } = models;
-  const [words, setWords] = useState('');
-  const [styles, setStyles] = useState<string[]>([]);
-  const [instrumental, setInstrumental] = useState(false);
-  const [seconds, setSeconds] = useState<number | null>(null);
+  const [words, setWords] = useState(draft.words);
+  const [styles, setStyles] = useState(draft.styles);
+  const [instrumental, setInstrumental] = useState(draft.instrumental);
+  const [seconds, setSeconds] = useState(draft.seconds);
   const [writing, setWriting] = useState(false);
   const tips = useFloatingTips('top');
+
+  useEffect(() => {
+    onDraft({ words, styles, seconds, instrumental });
+  }, [words, styles, seconds, instrumental, onDraft]);
 
   const schema = card ? musicSchema(card) : null;
   const can: Abilities | null = schema ? abilities(schema) : null;

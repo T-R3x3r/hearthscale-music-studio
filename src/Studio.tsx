@@ -121,6 +121,9 @@ const SAME_TEMPO = 0.01;
 /** The most edits undo goes back through. */
 const HISTORY = 200;
 
+/** The Make panel of a song that has not been described yet. */
+const EMPTY_DRAFT: MakeRequest = { words: '', styles: [], seconds: null, instrumental: false };
+
 /** The query of a tile too narrow for every control of the toolbar. */
 const NARROW = '(max-width: 759px)';
 
@@ -155,6 +158,7 @@ export function Studio() {
   const [deleting, setDeleting] = useState<SongRow | null>(null);
   const [range, setRange] = useState<Range | null>(null);
   const [editing, setEditing] = useState<{ kind: EditKind; clip: string } | null>(null);
+  const drafts = useRef(new Map<string, MakeRequest>());
   const [chat, setChat] = useState(false);
   const [library, setLibrary] = useState<'songs' | 'snippets' | null>(() => (matchMedia(CROWDED).matches ? null : 'songs'));
   const [selected, setSelected] = useState<string | null>(null);
@@ -1253,6 +1257,10 @@ export function Studio() {
               <MakePanel
                 key={song.id}
                 models={models}
+                draft={drafts.current.get(song.id) ?? EMPTY_DRAFT}
+                onDraft={(draft) => {
+                  drafts.current.set(song.id, draft);
+                }}
                 covered={crowded && (library !== null || chat)}
                 onMake={(request) => void make(request)}
                 lyrics={song.lyrics}
