@@ -78,7 +78,6 @@ export function MakePanel({ models, covered, onMake, lyrics, onLyrics }: Props) 
         ))}
       </div>
       <div className="ms-make-row">
-        {!covered && <MusicModelSlot />}
         {length !== null && can?.length && (
           <div className="ms-length">
             <Label>Length</Label>
@@ -109,6 +108,7 @@ export function MakePanel({ models, covered, onMake, lyrics, onLyrics }: Props) 
             Lyrics
           </Button>
         )}
+        {!covered && <MusicModelSlot />}
         <div className="ms-go">
           <span className="hs-tipwrap" {...make.hover}>
             <Button
