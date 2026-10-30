@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent, type PointerEvent, type RefObject } from 'react';
 import {
   anchorFrom,
   Icon,
@@ -313,6 +313,33 @@ interface ClipProps extends Props {
   onPress: (event: PointerEvent<HTMLElement>, clip: string, grip: Grip) => void;
 }
 
+/**
+ * Keeps a clip's name clear of its actions, which stick to the visible edge
+ * of the lanes, so a long name ends in an ellipsis before them.
+ */
+function useNameRoom(clip: RefObject<HTMLDivElement | null>, made: boolean) {
+  const fit = () => {
+    const name = clip.current?.querySelector<HTMLElement>('.ms-clip-name');
+    const actions = clip.current?.querySelector<HTMLElement>('.ms-clip-actions');
+    if (!name || !actions) return;
+    name.style.maxWidth = `${Math.max(0, actions.getBoundingClientRect().left - name.getBoundingClientRect().left)}px`;
+  };
+  useLayoutEffect(fit);
+  useEffect(() => {
+    const element = clip.current;
+    const lanes = element?.closest('.ms-lanes-scroll');
+    if (!element || !lanes) return;
+    lanes.addEventListener('scroll', fit, { passive: true });
+    const observer = new ResizeObserver(fit);
+    observer.observe(lanes);
+    observer.observe(element);
+    return () => {
+      lanes.removeEventListener('scroll', fit);
+      observer.disconnect();
+    };
+  }, [made]);
+}
+
 function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onPress, onEdit, onKeep, onRetry, onSnippet, onSplit, onSelect, onEditStart }: ClipProps) {
   const tips = useFloatingTips('top');
   const [menu, setMenu] = useState<MenuAnchor | null>(null);
@@ -321,6 +348,7 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
   const self = useRef<HTMLDivElement>(null);
   const left = clipStart(song, clip) * pps;
   const take = song.takes[clip.take];
+  useNameRoom(self, take !== undefined);
   const waiting = song.pending.filter((p) => p.clip === clip.id && !p.split);
   const splitting = song.pending.some((p) => p.clip === clip.id && p.split);
   const width = clipSeconds(clip) * pps;
