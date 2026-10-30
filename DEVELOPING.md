@@ -20,10 +20,6 @@ The view is React under `src/`, bundled by `build.mjs` into
 file with every change to the source. `backend.ts` is bundled by
 `hearthscale dev` and `hearthscale pack`.
 
-The SDK packages come from the pre-release builder kit as files
-(`package.json` names their paths). Point them at the npm releases once
-those carry the same version.
-
 ## Run
 
 With a development Hearthscale running:
@@ -58,9 +54,11 @@ open view of the app loads again in its place.
   `ui/download-file`.
 - **The music model** is the app's model of the `music` kind. The Make
   panel holds a model slot where Hearthscale draws its own picker
-  (`src/slots.ts`, `src/models.ts`); a pick there sets the app's model, so
-  the view lists the models again on focus, after a download and before
-  each job. Without a music model, the panel offers the download the
+  (`src/slots.ts`, `src/models.ts`); a pick there sets the app's model. The
+  view lists the models again when `hearthscale/models/chosen` says the
+  music model changed, after a download and before each job. The
+  introduction's download becomes the app's music model once it is ready.
+  Without a music model, the panel offers the download the
   introduction offers, read from `app.json`. Every slot of the view goes
   through one list, as each `hearthscale/ui/slots` call replaces the whole
   list.

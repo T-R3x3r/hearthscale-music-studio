@@ -3,7 +3,7 @@
  * host method, the host's notifications, and the addresses the host context
  * gives.
  */
-import { App, McpUiMessageResultSchema, PostMessageTransport } from '@modelcontextprotocol/ext-apps';
+import { App, PostMessageTransport } from '@modelcontextprotocol/ext-apps';
 import { hostCall } from '@hearthscale/app/view';
 import { sentenceCase } from './text';
 import type {
@@ -16,11 +16,6 @@ import type {
 
 export const app = new App({ name: 'Music studio', version: '0.1.0' }, {}, { autoResize: false });
 export const call = hostCall(app);
-
-/** Sends a standard MCP Apps request with the fields Hearthscale adds, which the library's own methods do not take. */
-function standard(method: 'ui/update-model-context' | 'ui/download-file', params: Record<string, unknown>): Promise<{ isError?: boolean }> {
-  return app.request({ method, params } as never, McpUiMessageResultSchema) as Promise<{ isError?: boolean }>;
-}
 
 type Note = ViewExtensionNotification | HostSlotNotification;
 type Listener = (note: Note) => void;
@@ -117,7 +112,7 @@ export async function keepWidgetState(values: Record<string, unknown>): Promise<
 
 /** Puts text into a chip above the chat slot `slot`, which the next message there carries. */
 export async function chatContext(slot: string, title: string, text: string): Promise<void> {
-  await standard('ui/update-model-context', {
+  await call('ui/update-model-context', {
     content: [{ type: 'text', text, _meta: { 'openai/title': title } }],
     _meta: { 'hearthscale/modelContext': { slot } },
   });
@@ -138,7 +133,7 @@ export async function tool(name: string, args: Record<string, unknown>, label: s
 
 /** Saves a file where the person picks in the system's dialog. False when they cancel. */
 export async function saveFile(name: string, mimeType: string, blob: Blob): Promise<boolean> {
-  const answer = await standard('ui/download-file', {
+  const answer = await call('ui/download-file', {
     contents: [{ type: 'resource', resource: { uri: `file:///${name}`, mimeType, blob } }],
   });
   return !answer.isError;

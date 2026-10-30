@@ -85,7 +85,7 @@ export function EditPanel({ kind, clip, words: start, bars, longest, onGo, onClo
         {kind === 'longer' && (
           <div className="ms-length">
             <Label>Added length</Label>
-            <Slider label="Added length" min={2} max={longest} step={1} value={seconds} onChange={setSeconds} shown={`${seconds} s`} />
+            <Slider label="Added length" min={2} max={longest} step={1} value={seconds} onChange={setSeconds} shown={`${Math.round(seconds)} s`} />
           </div>
         )}
         <div className="hs-flex-spacer" />

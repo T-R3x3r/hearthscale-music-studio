@@ -89,7 +89,7 @@ export function MakePanel({ models, covered, onMake, lyrics, onLyrics }: Props) 
               step={1}
               value={length}
               onChange={setSeconds}
-              shown={`${length} s`}
+              shown={`${Math.round(length)} s`}
             />
           </div>
         )}

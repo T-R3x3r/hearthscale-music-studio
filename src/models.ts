@@ -14,7 +14,7 @@ export interface MusicModels {
   /** The music models a Server offers to download, and the ones on their way. */
   offered: ModelCard[];
   downloads: Record<string, ModelDownload>;
-  /** Lists the models again and answers the app's music model, as a pick in the slot may have changed it. */
+  /** Lists the models again and answers the app's music model. */
   refresh: () => Promise<ModelCard | null>;
   /** Asks the person to download a model; on a click only. */
   install: (card: string) => Promise<void>;
@@ -53,22 +53,13 @@ export function useMusicModels(): MusicModels {
 
   useEffect(() => {
     void refresh();
-    const again = () => {
-      if (document.visibilityState === 'visible') void refresh();
-    };
-    document.addEventListener('visibilitychange', again);
-    window.addEventListener('focus', again);
-    const stop = onNote((note) => {
+    return onNote((note) => {
+      if (note.method === 'hearthscale/models/chosen' && note.params.kind === 'music') void refresh();
       if (note.method !== 'hearthscale/models/download') return;
       const { download } = note.params;
       setDownloads((before) => ({ ...before, [download.card]: download }));
       if (download.state !== 'downloading') void refresh();
     });
-    return () => {
-      document.removeEventListener('visibilitychange', again);
-      window.removeEventListener('focus', again);
-      stop();
-    };
   }, [refresh]);
 
   const install = useCallback(
