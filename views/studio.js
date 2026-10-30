@@ -675,7 +675,7 @@ body {
 .ms-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--gap-label);
+  gap: var(--gap-inline);
 }
 
 .ms-studio[data-narrow] .ms-chips {
