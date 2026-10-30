@@ -1149,7 +1149,7 @@ export function Studio() {
               aria-pressed={song.louder}
               onClick={() => void edit((s) => ({ ...s, louder: !s.louder }))}
             >
-              <Icon name="volume-up-line" size={16} />
+              <Icon name="equalizer-line" size={16} />
             </IconButton>
             {louderTip.tip}
           </span>
