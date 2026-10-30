@@ -393,6 +393,22 @@ body {
   box-shadow: inset 0 0 0 calc(var(--bw) * 2) var(--swatch);
 }
 
+.ms-clip:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.ms-clip[data-picked]:focus-visible {
+  box-shadow: inset 0 0 0 calc(var(--bw) * 2) var(--swatch), var(--focus);
+}
+
+.ms-menu-point {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
 .ms-grip {
   position: absolute;
   z-index: 1;
@@ -490,6 +506,14 @@ body {
 
 .ms-clip-name + * {
   margin-left: auto;
+}
+
+.ms-clip-actions {
+  position: sticky;
+  right: calc(var(--space) * 1.5);
+  display: flex;
+  align-items: center;
+  gap: var(--gap-inline);
 }
 
 .ms-versions {

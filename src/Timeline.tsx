@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DragEvent, type MouseEvent, type PointerEvent } from 'react';
+import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
 import {
   anchorFrom,
   Button,
@@ -317,6 +317,8 @@ interface ClipProps extends Props {
 function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onPress, onEdit, onKeep, onRetry, onSnippet, onSplit, onSelect, onEditStart }: ClipProps) {
   const tips = useFloatingTips('top');
   const [menu, setMenu] = useState<MenuAnchor | null>(null);
+  const [menuKeys, setMenuKeys] = useState(false);
+  const point = useRef<HTMLSpanElement>(null);
   const left = clipStart(song, clip) * pps;
   const take = song.takes[clip.take];
   const waiting = song.pending.filter((p) => p.clip === clip.id && !p.split);
@@ -376,15 +378,44 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
     setMenu(null);
     onEdit(edit);
   };
+  /** Opens the clip's menu at the pointer, on a right-click. */
+  const openAtPointer = (event: MouseEvent<HTMLElement>) => {
+    event.preventDefault();
+    const box = event.currentTarget.getBoundingClientRect();
+    const at = point.current!;
+    at.style.left = `${event.clientX - box.left}px`;
+    at.style.top = `${event.clientY - box.top}px`;
+    onSelect(clip.id);
+    setMenuKeys(false);
+    setMenu({ key: 'clip', element: at });
+  };
+  /** Picks the clip on Enter, and opens its menu on Shift+F10 or the menu key. */
+  const onKey = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      onSelect(clip.id);
+    } else if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+      event.preventDefault();
+      onSelect(clip.id);
+      setMenuKeys(true);
+      setMenu({ key: 'clip', element: event.currentTarget });
+    }
+  };
 
   return (
     <div
       className="ms-clip"
+      tabIndex={0}
+      aria-label={take.words || 'Audio'}
       data-picked={picked || undefined}
       style={{ left, width }}
       onClick={stop}
       onPointerDown={(event) => onPress(event, clip.id, 'move')}
+      onContextMenu={openAtPointer}
+      onKeyDown={onKey}
     >
+      <span ref={point} className="ms-menu-point" />
       <Wave
         asset={take.asset}
         offset={clip.offset}
@@ -400,42 +431,51 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
       {clip.fadeOut > 0 && <span className="ms-fade ms-fade-out" style={{ width: clip.fadeOut * pps }} />}
       <div className="ms-clip-bar">
         <span className="ms-clip-name">{take.words || 'Audio'}</span>
-        {splitting && (
-          <StatusWord tone="info" live>
-            Splitting…
-          </StatusWord>
-        )}
-        {waiting.length > 0 && (
-          <StatusWord tone="info" live>
-            Making…
-          </StatusWord>
-        )}
-        {clip.versions.length > 0 && (
-          <span className="ms-versions" onPointerDown={(event) => event.stopPropagation()}>
-            <TipIconButton size="sm" aria-label="Previous take" onClick={() => step(-1)}>
-              <Icon name="arrow-left-s-line" size={14} />
-            </TipIconButton>
-            <span className="hs-tipwrap ms-num" {...takes.hover}>
-              {index + 1} / {total}
-              {takes.tip}
+        <span className="ms-clip-actions">
+          {splitting && (
+            <StatusWord tone="info" live>
+              Splitting…
+            </StatusWord>
+          )}
+          {waiting.length > 0 && (
+            <StatusWord tone="info" live>
+              Making…
+            </StatusWord>
+          )}
+          {clip.versions.length > 0 && (
+            <span className="ms-versions" onPointerDown={(event) => event.stopPropagation()}>
+              <TipIconButton size="sm" aria-label="Previous take" onClick={() => step(-1)}>
+                <Icon name="arrow-left-s-line" size={14} />
+              </TipIconButton>
+              <span className="hs-tipwrap ms-num" {...takes.hover}>
+                {index + 1} / {total}
+                {takes.tip}
+              </span>
+              <TipIconButton size="sm" aria-label="Next take" onClick={() => step(1)}>
+                <Icon name="arrow-right-s-line" size={14} />
+              </TipIconButton>
+              {waiting.length === 0 && (
+                <Button size="sm" variant="secondary" onClick={() => onKeep(clip.id)}>
+                  Keep
+                </Button>
+              )}
             </span>
-            <TipIconButton size="sm" aria-label="Next take" onClick={() => step(1)}>
-              <Icon name="arrow-right-s-line" size={14} />
-            </TipIconButton>
-            {waiting.length === 0 && (
-              <Button size="sm" variant="secondary" onClick={() => onKeep(clip.id)}>
-                Keep
-              </Button>
-            )}
-          </span>
-        )}
-        {picked && (
-          <span onPointerDown={(event) => event.stopPropagation()}>
-            <TipIconButton size="sm" aria-label="Clip menu" onClick={(event) => setMenu(anchorFrom('clip', event))}>
-              <Icon name="more-2-line" size={14} />
-            </TipIconButton>
-          </span>
-        )}
+          )}
+          {picked && (
+            <span onPointerDown={(event) => event.stopPropagation()}>
+              <TipIconButton
+                size="sm"
+                aria-label="Clip menu"
+                onClick={(event) => {
+                  setMenuKeys(false);
+                  setMenu(anchorFrom('clip', event));
+                }}
+              >
+                <Icon name="more-2-line" size={14} />
+              </TipIconButton>
+            </span>
+          )}
+        </span>
       </div>
       {clip.loops === 1 && <span className="ms-grip ms-grip-start" onPointerDown={(event) => onPress(event, clip.id, 'start')} />}
       {clip.loops === 1 && <span className="ms-grip ms-grip-end" onPointerDown={(event) => onPress(event, clip.id, 'end')} />}
@@ -444,7 +484,7 @@ function ClipBlock({ song, clip, engine, jobs, pps, picked, position, edits, onP
         {loopTip.tip}
       </span>
       {menu && (
-        <MenuSurface anchor={menu} onDismiss={() => setMenu(null)}>
+        <MenuSurface anchor={menu} keyboard={menuKeys} onDismiss={() => setMenu(null)}>
           {edits.restyle && <MItem icon={<Icon name={EDITS.restyle.icon} size={14} />} label={EDITS.restyle.title} onClick={() => begin('restyle')} />}
           {edits.repaint && <MItem icon={<Icon name={EDITS.repaint.icon} size={14} />} label={EDITS.repaint.title} onClick={() => begin('repaint')} />}
           {edits.repaint && <MItem icon={<Icon name={EDITS.longer.icon} size={14} />} label={EDITS.longer.title} onClick={() => begin('longer')} />}
