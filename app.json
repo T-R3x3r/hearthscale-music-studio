@@ -30,7 +30,7 @@
   ],
   "models": {
     "music": {
-      "required": false
+      "required": true
     },
     "separation": {
       "required": false
@@ -393,30 +393,70 @@
     }
   ],
   "onboarding": {
-    "version": 1,
+    "version": 2,
     "cards": [
       {
-        "title": "Make a song from words",
-        "text": "Describe the music, pick a few style words and press Make. A music model on your computer makes it. ACE-Step sings and changes parts of a song.",
-        "download": "audio-cpp/ace-step-1.5-turbo"
+        "title": "Songs from a few words.",
+        "text": "Music studio makes music from a description, on this computer, and lets you shape it on tracks.",
+        "download": "audio-cpp/stable-audio-3-small-music"
       },
       {
-        "title": "Shape it on tracks",
+        "title": "Make a song, then change it.",
         "rows": [
           {
             "icon": "music",
-            "title": "Loops and cuts",
-            "text": "Drag a clip to move it, its corner to loop it, its edges to trim it."
+            "title": "Make a song",
+            "text": "Describe it, pick a style and choose Make."
           },
           {
+            "icon": "pen",
+            "title": "Change a part",
+            "text": "Change its style, redo some bars, extend it or add an instrument."
+          },
+          {
+            "icon": "view",
+            "title": "Split into stems",
+            "text": "Put the vocals, drums, bass and the rest on tracks of their own."
+          }
+        ]
+      },
+      {
+        "title": "Mix it on tracks.",
+        "rows": [
+          {
             "icon": "speech",
-            "title": "Your own sound",
-            "text": "Record your voice or import a song, and split it into its parts."
+            "title": "Mixer",
+            "text": "Set each track's volume, mute it with M or hear it alone with S."
+          },
+          {
+            "icon": "scroll",
+            "title": "Snippets",
+            "text": "Save a clip, then drop it into any song in time and in tune."
           },
           {
             "icon": "agent",
-            "title": "Ask",
-            "text": "Tell the assistant what to change, in your own words."
+            "title": "Assistant",
+            "text": "Choose Ask and say what to change."
+          }
+        ]
+      },
+      {
+        "title": "Good for any video, podcast or game.",
+        "rows": [
+          {
+            "icon": "camera",
+            "title": "Video soundtracks",
+            "text": "Calm piano under a holiday film."
+          },
+          {
+            "icon": "clock",
+            "title": "Podcast intros",
+            "text": "Ten seconds of upbeat jazz."
+          },
+          {
+            "icon": "lightbulb",
+            "title": "Study loops",
+            "text": "Lo-fi beats that play as long as you need."
           }
         ]
       }
