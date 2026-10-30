@@ -378,7 +378,7 @@ body {
   bottom: calc(var(--space) * 1);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: clip;
   border-radius: var(--r-sm);
   background: var(--swatch-tint);
   color: var(--swatch-ink);
@@ -482,12 +482,18 @@ body {
 }
 
 .ms-clip-name {
-  flex: 1;
+  position: sticky;
+  left: calc(var(--space) * 1.5);
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--fs-sm);
+}
+
+.ms-clip-name + * {
+  margin-left: auto;
 }
 
 .ms-versions {
